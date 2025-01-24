@@ -1,0 +1,15 @@
+[package]
+name = "base"
+version = "0.1.0"
+edition = "2021"
+publish = false
+authors = ["Christoph J. Scherr <software@cscherr.de>"]
+license = "GPL-3.0-or-later"
+description = "No description yet"
+readme = "README.md"
+homepage = "https://git.cscherr.de/PlexSheep/rs-base"
+repository = "https://git.cscherr.de/PlexSheep/rs-base"
+keywords = ["template"]
+
+
+[dependencies]

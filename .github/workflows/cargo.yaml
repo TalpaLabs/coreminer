@@ -1,0 +1,53 @@
+name: Rust CI
+on:
+  pull_request:
+    branches:
+      - '**'
+  push:
+    branches:
+      - '**'
+      # - '!master'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  CI:
+    runs-on: ubuntu-latest
+    name: cargo CI
+    permissions:
+      # Give the default GITHUB_TOKEN write permission to commit and push the
+      # added or changed files to the repository.
+      contents: write
+    steps:
+      - name: get repo
+        uses: actions/checkout@v4
+      - name: install rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: install additional rust things
+        run: |
+          rustup component add rustfmt
+          rustup component add clippy
+      - name: config custom registry
+        run: |
+          mkdir -p ~/.cargo/
+          echo "" > ~/.cargo/config.toml
+          echo "[registry]" >> ~/.cargo/config.toml
+          echo 'cscherr = "cscherr"' >> ~/.cargo/config.toml
+          echo '[registries.cscherr]' >> ~/.cargo/config.toml
+          echo 'index = "https://git.cscherr.de/PlexSheep/_cargo-index.git"' >> ~/.cargo/config.toml
+          cat ~/.cargo/config.toml
+      - name: cargo clippy check
+        run: cargo clippy --all-features --all-targets --workspace
+      - name: cargo clippy fix
+        run: cargo clippy --fix --all-features --all-targets --workspace
+      - name: cargo fmt
+        run: cargo fmt --all
+      - name: cargo test
+        run: cargo test --all-features --all-targets --workspace
+      - name: commit back to repository
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          # Optional. Commit message for the created commit.
+          # Defaults to "Apply automatic changes"
+          commit_message: "ci: automatic Rust CI changes"

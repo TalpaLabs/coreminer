@@ -1,15 +1,20 @@
 [package]
-name = "base"
+name = "coreminer"
 version = "0.1.0"
 edition = "2021"
 publish = false
-authors = ["Christoph J. Scherr <software@cscherr.de>"]
-license = "GPL-3.0-or-later"
-description = "No description yet"
+authors = ["Christoph J. Scherr <software@cscherr.de>", "Marco Ludwig"]
+license = "MIT"
+description = "A debugger which can be used to debug programs that do not want to be debugged"
 readme = "README.md"
-homepage = "https://git.cscherr.de/PlexSheep/rs-base"
-repository = "https://git.cscherr.de/PlexSheep/rs-base"
-keywords = ["template"]
+homepage = "https://github.com/debugger-bs/coreminer"
+repository = "https://github.com/debugger-bs/coreminer"
+keywords = [""]
 
 
 [dependencies]
+nix = { version = "0.29.0", features = ["process"] }
+
+[[bin]]
+name = "cm"
+path = "src/bins/cm.rs"

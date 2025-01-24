@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use coreminer::errors::DebuggerError;
-use coreminer::{is_loaded, launch_debugee};
+use coreminer::{is_loaded, launch_debuggee};
 
 use clap::Parser;
 use tracing::debug;
@@ -10,7 +10,7 @@ use tracing::debug;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// The Program to launch as debugee
+    /// The Program to launch as debuggee
     #[clap(short, long)]
     run: PathBuf,
 }
@@ -22,8 +22,8 @@ fn main() -> Result<(), DebuggerError> {
 
     let args = Args::parse();
 
-    let debugee_args = Vec::new();
-    launch_debugee(&args.run, &debugee_args)?;
+    let debuggee_args = Vec::new();
+    launch_debuggee(&args.run, &debuggee_args)?;
 
     Ok(())
 }

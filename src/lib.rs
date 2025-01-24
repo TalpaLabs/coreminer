@@ -10,7 +10,7 @@ use self::errors::DebuggerError;
 
 pub mod errors;
 
-pub fn launch_debugee(
+pub fn launch_debuggee(
     executable: impl AsRef<Path>,
     args: &[CString],
 ) -> Result<Pid, DebuggerError> {
@@ -36,7 +36,7 @@ pub fn launch_debugee(
             nix::unistd::ForkResult::Parent { child } => Ok(child),
             nix::unistd::ForkResult::Child => {
                 ptrace::traceme()?;
-                info!("starting the debugee process");
+                info!("starting the debuggee process");
                 let cpath = CString::from_str(path.to_string_lossy().to_string().as_str())?;
                 execv(&cpath, args)?;
                 unreachable!()

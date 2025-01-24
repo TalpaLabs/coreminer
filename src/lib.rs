@@ -1,10 +1,10 @@
 use std::ffi::CString;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::str::FromStr;
 
 use nix::sys::ptrace;
 use nix::unistd::{execv, Pid};
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use self::errors::DebuggerError;
 

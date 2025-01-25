@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -9,20 +10,22 @@ use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::{execv, Pid};
 use tracing::{error, info};
 
+use crate::breakpoint::{Addr, Breakpoint, RawPointer};
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::{self, Feedback};
 use crate::ui::{DebuggerUI, Status};
 
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone)]
 pub struct Debugger<UI: DebuggerUI> {
     debuggee: Option<Debuggee>,
     ui: UI,
     executable: PathBuf,
 }
 
-#[derive(Debug, Clone, Hash, Copy)]
+#[derive(Debug, Clone)]
 pub struct Debuggee {
     pid: Pid,
+    breakpoints: HashMap<Addr, Breakpoint>,
 }
 
 impl Debuggee {
@@ -62,7 +65,10 @@ impl<UI: DebuggerUI> Debugger<UI> {
             }
             Ok(fr) => match fr {
                 nix::unistd::ForkResult::Parent { child: pid } => {
-                    self.debuggee = Some(Debuggee { pid });
+                    self.debuggee = Some(Debuggee {
+                        pid,
+                        breakpoints: HashMap::new(),
+                    });
                     Ok(())
                 }
                 nix::unistd::ForkResult::Child => {
@@ -83,7 +89,7 @@ impl<UI: DebuggerUI> Debugger<UI> {
             flags |= *f;
         }
         Ok(waitpid(
-            self.debuggee.unwrap().pid,
+            self.debuggee.as_ref().unwrap().pid,
             if flags.is_empty() { None } else { Some(flags) },
         )?)
     }
@@ -114,7 +120,7 @@ impl<UI: DebuggerUI> Debugger<UI> {
 
     pub fn cont(&self, sig: Option<Signal>) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
-        ptrace::cont(self.debuggee.unwrap().pid, sig)?;
+        ptrace::cont(self.debuggee.as_ref().unwrap().pid, sig)?;
 
         self.wait(&[])?; // wait until the debuggee is stopped again!!!
         Ok(Feedback::Continue)
@@ -131,7 +137,7 @@ impl<UI: DebuggerUI> Debugger<UI> {
     }
 
     pub fn cleanup(&self) -> Result<()> {
-        if let Some(dbge) = self.debuggee {
+        if let Some(dbge) = &self.debuggee {
             dbge.kill()?;
         }
         Ok(())

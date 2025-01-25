@@ -13,5 +13,5 @@ pub enum Status {
 }
 
 pub trait DebuggerUI {
-    fn process(&self, feedback: &Feedback) -> Result<Status>;
+    fn process(&mut self, feedback: &Feedback) -> Result<Status>;
 }

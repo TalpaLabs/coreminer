@@ -14,6 +14,7 @@ keywords = [""]
 
 [dependencies]
 clap = { version = "4.5.27", features = ["derive"] }
+dialoguer = { version = "0.11.0", features = ["history"] }
 gimli = "0.31.1"
 nix = { version = "0.29.0", features = ["personality", "process", "ptrace"] }
 serde = "1.0.217"

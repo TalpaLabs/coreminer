@@ -25,7 +25,7 @@ fn main() -> Result<(), DebuggerError> {
     let args = Args::parse();
 
     let debuggee_args = Vec::new();
-    let ui = CliUi;
+    let ui = CliUi::build()?;
     let mut debug: Debugger<CliUi> = Debugger::build(&args.run, ui);
     debug.launch_debuggee(&debuggee_args)?;
     debug.run_debugger()?;

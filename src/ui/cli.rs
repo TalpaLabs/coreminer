@@ -1,32 +1,39 @@
-use std::fmt::Write;
-use std::io::{stdout, Write as _};
-
+use dialoguer::BasicHistory;
 use tracing::{error, info, trace, warn};
 
 use super::{DebuggerUI, Status};
 use crate::breakpoint::Addr;
 use crate::errors::Result;
-use crate::feedback::{self, Feedback};
+use crate::feedback::Feedback;
 
-pub struct CliUi;
+pub struct CliUi {
+    buf: String,
+    buf_preparsed: Vec<String>,
+    history: BasicHistory,
+}
 
 impl CliUi {
-    pub fn get_line(&self) -> Result<String> {
-        let mut buf = String::new();
-        let mut stdout = std::io::stdout();
-        let stdin = std::io::stdin();
-        print!("cm> ");
-        stdout.flush()?;
-        stdin.read_line(&mut buf)?;
+    pub fn build() -> Result<Self> {
+        let ui = CliUi {
+            buf_preparsed: Vec::new(),
+            buf: String::new(),
+            history: BasicHistory::new(),
+        };
+        Ok(ui)
+    }
 
-        buf = buf.trim().to_string();
-
-        Ok(buf)
+    pub fn get_input(&mut self) -> Result<()> {
+        self.buf = dialoguer::Input::with_theme(&dialoguer::theme::ColorfulTheme::default())
+            .history_with(&mut self.history)
+            .interact_text()?;
+        trace!("processing '{}'", self.buf);
+        self.buf_preparsed = self.buf.split_whitespace().map(|a| a.to_string()).collect();
+        Ok(())
     }
 }
 
 impl DebuggerUI for CliUi {
-    fn process(&self, feedback: &Feedback) -> crate::errors::Result<Status> {
+    fn process(&mut self, feedback: &Feedback) -> crate::errors::Result<Status> {
         if let Feedback::Error(e) = feedback {
             warn!("{e}");
         } else {
@@ -34,25 +41,19 @@ impl DebuggerUI for CliUi {
         }
 
         loop {
-            let line = self.get_line()?;
-            let line_lower = line.to_lowercase();
-            let words: Vec<&str> = line_lower.split_whitespace().collect();
-            if words.is_empty() {
-                return Ok(Status::DebuggerQuit);
-            }
-            trace!("processing '{line_lower}'");
+            self.get_input()?;
 
-            if starts_with_any(words[0], &["cont", "c"]) {
+            if starts_with_any(&self.buf_preparsed[0], &["cont", "c"]) {
                 return Ok(Status::Continue);
-            } else if starts_with_any(words[0], &["break", "bp"]) {
-                let addr_raw: usize = usize::from_str_radix(words[1], 16)?;
+            } else if starts_with_any(&self.buf_preparsed[0], &["break", "bp"]) {
+                let addr_raw: usize = usize::from_str_radix(&self.buf_preparsed[1], 16)?;
                 let addr: Addr = Addr::from(addr_raw);
                 return Ok(Status::SetBreakpoint(addr));
-            } else if starts_with_any(words[0], &["delbreak", "dbp"]) {
-                let addr_raw: usize = usize::from_str_radix(words[1], 16)?;
+            } else if starts_with_any(&self.buf_preparsed[0], &["delbreak", "dbp"]) {
+                let addr_raw: usize = usize::from_str_radix(&self.buf_preparsed[1], 16)?;
                 let addr: Addr = Addr::from(addr_raw);
                 return Ok(Status::DelBreakpoint(addr));
-            } else if starts_with_any(words[0], &["regs"]) {
+            } else if starts_with_any(&self.buf_preparsed[0], &["regs"]) {
                 return Ok(Status::DumpRegisters);
             } else {
                 error!("bad input, use help if we already bothered to implement that");

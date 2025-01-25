@@ -1,3 +1,4 @@
+pub mod breakpoint;
 pub mod debugger;
 pub mod errors;
 pub mod feedback;

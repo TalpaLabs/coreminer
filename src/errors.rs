@@ -16,4 +16,8 @@ pub enum DebuggerError {
     CStringConv(#[from] std::ffi::NulError),
     #[error("No debuggee configured")]
     NoDebugee,
+    #[error("Tried to enable breakpoint again")]
+    BreakpointIsAlreadyEnabled,
+    #[error("Tried to disable breakpoint again")]
+    BreakpointIsAlreadyDisabled,
 }

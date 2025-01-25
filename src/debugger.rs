@@ -116,7 +116,7 @@ impl<UI: DebuggerUI> Debugger<UI> {
         self.err_if_no_debuggee()?;
         ptrace::cont(self.debuggee.unwrap().pid, sig)?;
 
-        // self.wait(&[])?; // FIXME: waiting here waits forever, but we should wait somehow
+        self.wait(&[])?; // wait until the debuggee is stopped again!!!
         Ok(Feedback::Continue)
     }
 

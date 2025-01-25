@@ -33,10 +33,14 @@ impl DebuggerUI for CliUi {
         let line_lower = line.to_lowercase();
         trace!("processing '{line_lower}'");
 
-        if line_lower.starts_with("continue") {
+        if starts_with_any(&line_lower, &["cont"]) {
             Ok(Status::Continue)
         } else {
             Ok(Status::Nothing)
         }
     }
+}
+
+fn starts_with_any(cmd: &str, prefixes: &[&str]) -> bool {
+    prefixes.iter().any(|a| cmd.starts_with(a))
 }

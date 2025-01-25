@@ -2,6 +2,7 @@ use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+use nix::libc::NOSTR;
 use nix::sys::ptrace;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
@@ -114,6 +115,8 @@ impl<UI: DebuggerUI> Debugger<UI> {
     pub fn cont(&self, sig: Option<Signal>) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
         ptrace::cont(self.debuggee.unwrap().pid, sig)?;
+
+        // self.wait(&[])?; // FIXME: waiting here waits forever, but we should wait somehow
         Ok(Feedback::Continue)
     }
 

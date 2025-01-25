@@ -5,8 +5,8 @@ use crate::errors::{DebuggerError, Result};
 
 pub type RawPointer = *mut std::ffi::c_void;
 
-#[derive(Hash, Clone, Copy, Debug)]
-pub struct Addr(RawPointer);
+#[derive(Hash, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Addr(pub RawPointer);
 
 pub const INT3: i64 = 0xcc;
 pub const WORD_MASK: i64 = 0xff;
@@ -64,5 +64,11 @@ impl From<RawPointer> for Addr {
 impl From<Addr> for RawPointer {
     fn from(value: Addr) -> Self {
         value.0
+    }
+}
+
+impl From<usize> for Addr {
+    fn from(value: usize) -> Self {
+        Addr(value as RawPointer)
     }
 }

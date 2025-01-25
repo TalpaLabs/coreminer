@@ -20,4 +20,6 @@ pub enum DebuggerError {
     BreakpointIsAlreadyEnabled,
     #[error("Tried to disable breakpoint again")]
     BreakpointIsAlreadyDisabled,
+    #[error("Could not parse integer: {0}")]
+    ParseInt(#[from] std::num::ParseIntError),
 }

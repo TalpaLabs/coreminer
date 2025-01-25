@@ -3,16 +3,16 @@ use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use nix::libc::NOSTR;
-use nix::sys::ptrace;
+use nix::sys::personality::Persona;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
+use nix::sys::{personality, ptrace};
 use nix::unistd::{execv, Pid};
 use tracing::{error, info};
 
-use crate::breakpoint::{Addr, Breakpoint, RawPointer};
+use crate::breakpoint::{Addr, Breakpoint};
 use crate::errors::{DebuggerError, Result};
-use crate::feedback::{self, Feedback};
+use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Status};
 
 #[derive(Debug, Clone)]
@@ -72,6 +72,7 @@ impl<UI: DebuggerUI> Debugger<UI> {
                     Ok(())
                 }
                 nix::unistd::ForkResult::Child => {
+                    personality::set(Persona::ADDR_NO_RANDOMIZE)?; // FIXME: maybe remove this
                     ptrace::traceme()?;
                     info!("starting the debuggee process");
                     let cpath = CString::from_str(path.to_string_lossy().to_string().as_str())?;
@@ -94,10 +95,10 @@ impl<UI: DebuggerUI> Debugger<UI> {
         )?)
     }
 
-    pub fn run_debugger(&self) -> Result<()> {
+    pub fn run_debugger(&mut self) -> Result<()> {
         self.wait(&[])?; // wait until the debuggee is stopped
 
-        let mut feedback: Feedback = Feedback::Nothing;
+        let mut feedback: Feedback = Feedback::Ok;
         loop {
             let ui_res = self.ui.process(&feedback);
             feedback = {
@@ -108,8 +109,10 @@ impl<UI: DebuggerUI> Debugger<UI> {
                     }
                     Ok(s) => match s {
                         Status::DebuggerQuit => break,
-                        Status::Nothing => Feedback::Nothing,
                         Status::Continue => self.cont(None)?,
+                        Status::SetBreakpoint(addr) => self.set_bp(addr)?,
+                        Status::DelBreakpoint(addr) => self.del_bp(addr)?,
+                        Status::DumpRegisters => self.dump_regs()?,
                     },
                 }
             };
@@ -123,7 +126,14 @@ impl<UI: DebuggerUI> Debugger<UI> {
         ptrace::cont(self.debuggee.as_ref().unwrap().pid, sig)?;
 
         self.wait(&[])?; // wait until the debuggee is stopped again!!!
-        Ok(Feedback::Continue)
+        Ok(Feedback::Ok)
+    }
+
+    pub fn dump_regs(&self) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+        let regs = ptrace::getregs(dbge.pid)?;
+        Ok(Feedback::Registers(regs))
     }
 
     fn err_if_no_debuggee(&self) -> Result<()> {
@@ -141,5 +151,21 @@ impl<UI: DebuggerUI> Debugger<UI> {
             dbge.kill()?;
         }
         Ok(())
+    }
+
+    pub fn set_bp(&mut self, addr: Addr) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_mut().unwrap();
+
+        let mut bp = Breakpoint::new(dbge.pid, addr);
+        bp.enable()?;
+        dbge.breakpoints.insert(addr, bp);
+
+        Ok(Feedback::Ok)
+    }
+
+    fn del_bp(&mut self, addr: Addr) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        todo!()
     }
 }

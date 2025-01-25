@@ -1,3 +1,4 @@
+use crate::breakpoint::Addr;
 use crate::errors::Result;
 use crate::feedback::Feedback;
 
@@ -5,8 +6,10 @@ pub mod cli;
 
 pub enum Status {
     DebuggerQuit,
-    Nothing,
     Continue,
+    SetBreakpoint(Addr),
+    DelBreakpoint(Addr),
+    DumpRegisters,
 }
 
 pub trait DebuggerUI {

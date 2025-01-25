@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
+use coreminer::debugger::Debugger;
 use coreminer::errors::DebuggerError;
-use coreminer::{is_loaded, launch_debuggee};
+use coreminer::is_loaded;
+use coreminer::ui::cli::CliUi;
 
 use clap::Parser;
 use tracing::debug;
@@ -23,7 +25,11 @@ fn main() -> Result<(), DebuggerError> {
     let args = Args::parse();
 
     let debuggee_args = Vec::new();
-    launch_debuggee(&args.run, &debuggee_args)?;
+    let ui = CliUi;
+    let mut debug: Debugger<CliUi> = Debugger::build(&args.run, ui);
+    debug.launch_debuggee(&debuggee_args)?;
+    debug.run_debugger()?;
+    debug.cleanup()?;
 
     Ok(())
 }

@@ -12,7 +12,7 @@ pub const INT3: i64 = 0xcc;
 pub const WORD_MASK: i64 = 0xff;
 pub const WORD_MASK_INV: i64 = i64::MAX ^ WORD_MASK;
 
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub struct Breakpoint {
     addr: Addr,
     pid: Pid,
@@ -70,5 +70,14 @@ impl From<Addr> for RawPointer {
 impl From<usize> for Addr {
     fn from(value: usize) -> Self {
         Addr(value as RawPointer)
+    }
+}
+
+impl Drop for Breakpoint {
+    fn drop(&mut self) {
+        if self.saved_data.is_some() {
+            self.disable()
+                .expect("could not disable breakpoint while dropping")
+        }
     }
 }

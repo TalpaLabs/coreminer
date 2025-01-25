@@ -48,6 +48,10 @@ impl DebuggerUI for CliUi {
                 let addr_raw: usize = usize::from_str_radix(words[1], 16)?;
                 let addr: Addr = Addr::from(addr_raw);
                 return Ok(Status::SetBreakpoint(addr));
+            } else if starts_with_any(words[0], &["delbreak", "dbp"]) {
+                let addr_raw: usize = usize::from_str_radix(words[1], 16)?;
+                let addr: Addr = Addr::from(addr_raw);
+                return Ok(Status::DelBreakpoint(addr));
             } else if starts_with_any(words[0], &["regs"]) {
                 return Ok(Status::DumpRegisters);
             } else {

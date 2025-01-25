@@ -8,7 +8,7 @@ use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::sys::{personality, ptrace};
 use nix::unistd::{execv, Pid};
-use tracing::{error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::breakpoint::{Addr, Breakpoint};
 use crate::errors::{DebuggerError, Result};
@@ -164,8 +164,17 @@ impl<UI: DebuggerUI> Debugger<UI> {
         Ok(Feedback::Ok)
     }
 
-    fn del_bp(&mut self, addr: Addr) -> Result<Feedback> {
+    pub fn del_bp(&mut self, addr: Addr) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
-        todo!()
+        let dbge = self.debuggee.as_mut().unwrap();
+        debug!("{:#x?}", dbge.breakpoints);
+
+        if let Some(_bp) = dbge.breakpoints.get_mut(&addr) {
+            dbge.breakpoints.remove(&addr); // gets disabled on dropping
+        } else {
+            warn!("removed a breakpoint at {addr:x?} that did not exist");
+        }
+
+        Ok(Feedback::Ok)
     }
 }

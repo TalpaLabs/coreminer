@@ -3,11 +3,13 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use nix::sys::ptrace;
+use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::{execv, Pid};
 use tracing::{error, info};
 
 use crate::errors::{DebuggerError, Result};
+use crate::feedback::{self, Feedback};
 use crate::ui::{DebuggerUI, Status};
 
 #[derive(Debug, Clone, Hash)]
@@ -88,20 +90,31 @@ impl<UI: DebuggerUI> Debugger<UI> {
     pub fn run_debugger(&self) -> Result<()> {
         self.wait(&[])?; // wait until the debuggee is stopped
 
+        let mut feedback: Feedback = Feedback::Nothing;
         loop {
-            match self.ui.process_command() {
-                Err(e) => {
-                    error!("{e}");
-                    return Err(e);
+            let ui_res = self.ui.process(&feedback);
+            feedback = {
+                match ui_res {
+                    Err(e) => {
+                        error!("{e}");
+                        return Err(e);
+                    }
+                    Ok(s) => match s {
+                        Status::DebuggerQuit => break,
+                        Status::Nothing => Feedback::Nothing,
+                        Status::Continue => self.cont(None)?,
+                    },
                 }
-                Ok(s) => match s {
-                    Status::Stop => break,
-                    Status::Continue => (),
-                },
-            }
+            };
         }
 
         Ok(())
+    }
+
+    pub fn cont(&self, sig: Option<Signal>) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        ptrace::cont(self.debuggee.unwrap().pid, sig)?;
+        Ok(Feedback::Continue)
     }
 
     fn err_if_no_debuggee(&self) -> Result<()> {

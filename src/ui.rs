@@ -1,12 +1,14 @@
 use crate::errors::Result;
+use crate::feedback::Feedback;
 
 pub mod cli;
 
 pub enum Status {
+    DebuggerQuit,
+    Nothing,
     Continue,
-    Stop,
 }
 
 pub trait DebuggerUI {
-    fn process_command(&self) -> Result<Status>;
+    fn process(&self, feedback: &Feedback) -> Result<Status>;
 }

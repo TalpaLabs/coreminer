@@ -1,5 +1,6 @@
 pub mod debugger;
 pub mod errors;
+pub mod feedback;
 pub mod ui;
 
 pub fn is_loaded() -> bool {

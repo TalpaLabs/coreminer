@@ -13,7 +13,7 @@ use crate::breakpoint::Breakpoint;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Register, Status};
-use crate::Addr;
+use crate::{rmem, wmem, Addr, Word};
 
 #[derive(Debug, Clone)]
 pub struct Debugger<UI: DebuggerUI> {
@@ -114,6 +114,8 @@ impl<UI: DebuggerUI> Debugger<UI> {
                         Status::DelBreakpoint(addr) => self.del_bp(addr),
                         Status::DumpRegisters => self.dump_regs(),
                         Status::SetRegister(r, v) => self.set_regs(r, v),
+                        Status::WriteMem(a, v) => self.write_mem(a, v),
+                        Status::ReadMem(a) => self.read_mem(a),
                     },
                 }
             }
@@ -216,6 +218,23 @@ impl<UI: DebuggerUI> Debugger<UI> {
         }
 
         ptrace::setregs(dbge.pid, regs)?;
+
+        Ok(Feedback::Ok)
+    }
+
+    pub fn read_mem(&self, addr: Addr) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+
+        let w = rmem(dbge.pid, addr)?;
+
+        Ok(Feedback::Word(w))
+    }
+    pub fn write_mem(&self, addr: Addr, value: Word) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+
+        wmem(dbge.pid, addr, value)?;
 
         Ok(Feedback::Ok)
     }

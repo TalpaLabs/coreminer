@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
-use crate::Addr;
+use crate::{Addr, Word};
 
 pub mod cli;
 
@@ -13,6 +13,8 @@ pub enum Status {
     DelBreakpoint(Addr),
     DumpRegisters,
     SetRegister(Register, u64),
+    WriteMem(Addr, Word),
+    ReadMem(Addr),
 }
 
 pub trait DebuggerUI {

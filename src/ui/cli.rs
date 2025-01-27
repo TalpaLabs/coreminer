@@ -56,6 +56,23 @@ impl DebuggerUI for CliUi {
                 let addr_raw: usize = usize::from_str_radix(&self.buf_preparsed[1], 16)?;
                 let addr: Addr = Addr::from(addr_raw);
                 return Ok(Status::DelBreakpoint(addr));
+            } else if starts_with_any(&self.buf_preparsed[0], &["rmem"]) {
+                if self.buf_preparsed.len() < 2 {
+                    error!("rmem ADDR");
+                    continue;
+                }
+                let addr_raw: usize = usize::from_str_radix(&self.buf_preparsed[1], 16)?;
+                let addr: Addr = Addr::from(addr_raw);
+                return Ok(Status::ReadMem(addr));
+            } else if starts_with_any(&self.buf_preparsed[0], &["wmem"]) {
+                if self.buf_preparsed.len() < 3 {
+                    error!("wmem ADDR VAL");
+                    continue;
+                }
+                let addr_raw: usize = usize::from_str_radix(&self.buf_preparsed[1], 16)?;
+                let addr: Addr = Addr::from(addr_raw);
+                let value = i64::from_str_radix(&self.buf_preparsed[2], 16)?;
+                return Ok(Status::WriteMem(addr, value));
             } else if starts_with_any(&self.buf_preparsed[0], &["regs"]) {
                 if self.buf_preparsed.len() < 2 {
                     error!("need to give a subcommand");

@@ -9,6 +9,7 @@ pub mod errors;
 pub mod feedback;
 pub mod ui;
 
+pub type Word = i64;
 pub type RawPointer = *mut std::ffi::c_void;
 
 #[derive(Hash, Clone, Copy, Debug, PartialEq, Eq)]
@@ -32,10 +33,10 @@ impl From<usize> for Addr {
     }
 }
 
-pub(crate) fn wmem(pid: Pid, addr: Addr, value: i64) -> Result<()> {
+pub(crate) fn wmem(pid: Pid, addr: Addr, value: Word) -> Result<()> {
     Ok(ptrace::write(pid, addr.into(), value)?)
 }
 
-pub(crate) fn rmem(pid: Pid, addr: Addr) -> Result<i64> {
+pub(crate) fn rmem(pid: Pid, addr: Addr) -> Result<Word> {
     Ok(ptrace::read(pid, addr.into())?)
 }

@@ -7,7 +7,7 @@ use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::sys::{personality, ptrace};
 use nix::unistd::{execv, Pid};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::breakpoint::Breakpoint;
 use crate::errors::{DebuggerError, Result};

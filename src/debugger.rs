@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 use nix::sys::personality::Persona;
 use nix::sys::signal::Signal;

@@ -1,12 +1,7 @@
-use nix::sys::ptrace;
 use nix::unistd::Pid;
 
 use crate::errors::{DebuggerError, Result};
-
-pub type RawPointer = *mut std::ffi::c_void;
-
-#[derive(Hash, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Addr(pub RawPointer);
+use crate::{rmem, wmem, Addr};
 
 pub const INT3: i64 = 0xcc;
 pub const WORD_MASK: i64 = 0xff;
@@ -33,10 +28,10 @@ impl Breakpoint {
             return Err(DebuggerError::BreakpointIsAlreadyEnabled);
         }
 
-        let data_word: i64 = ptrace::read(self.pid, self.addr.into())?;
+        let data_word: i64 = rmem(self.pid, self.addr)?;
         self.saved_data = Some((data_word & WORD_MASK) as u8);
         let data_word_modified: i64 = (data_word & WORD_MASK_INV) | INT3;
-        ptrace::write(self.pid, self.addr.into(), data_word_modified)?;
+        wmem(self.pid, self.addr, data_word_modified)?;
 
         Ok(())
     }
@@ -46,30 +41,12 @@ impl Breakpoint {
             return Err(DebuggerError::BreakpointIsAlreadyDisabled);
         }
 
-        let data_word: i64 = ptrace::read(self.pid, self.addr.into())?;
+        let data_word: i64 = rmem(self.pid, self.addr)?;
         let data_word_restored: i64 = (data_word & WORD_MASK_INV) | self.saved_data.unwrap() as i64;
-        ptrace::write(self.pid, self.addr.into(), data_word_restored)?;
+        wmem(self.pid, self.addr, data_word_restored)?;
         self.saved_data = None;
 
         Ok(())
-    }
-}
-
-impl From<RawPointer> for Addr {
-    fn from(value: RawPointer) -> Self {
-        Addr(value)
-    }
-}
-
-impl From<Addr> for RawPointer {
-    fn from(value: Addr) -> Self {
-        value.0
-    }
-}
-
-impl From<usize> for Addr {
-    fn from(value: usize) -> Self {
-        Addr(value as RawPointer)
     }
 }
 

@@ -9,10 +9,11 @@ use nix::sys::{personality, ptrace};
 use nix::unistd::{execv, Pid};
 use tracing::{debug, error, info, warn};
 
-use crate::breakpoint::{Addr, Breakpoint};
+use crate::breakpoint::Breakpoint;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Register, Status};
+use crate::Addr;
 
 #[derive(Debug, Clone)]
 pub struct Debugger<UI: DebuggerUI> {

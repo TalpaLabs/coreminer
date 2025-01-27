@@ -4,9 +4,9 @@ use dialoguer::BasicHistory;
 use tracing::{error, info, trace, warn};
 
 use super::{DebuggerUI, Register, Status};
-use crate::breakpoint::Addr;
 use crate::errors::Result;
 use crate::feedback::Feedback;
+use crate::Addr;
 
 pub struct CliUi {
     buf: String,

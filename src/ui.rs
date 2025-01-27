@@ -1,8 +1,8 @@
 use std::str::FromStr;
 
-use crate::breakpoint::Addr;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
+use crate::Addr;
 
 pub mod cli;
 

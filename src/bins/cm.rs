@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use coreminer::debugger::Debugger;
 use coreminer::errors::DebuggerError;
-use coreminer::is_loaded;
 use coreminer::ui::cli::CliUi;
 
 use clap::Parser;
@@ -20,7 +19,6 @@ struct Args {
 fn main() -> Result<(), DebuggerError> {
     setup_logger();
     debug!("set up the logger");
-    assert!(is_loaded());
 
     let args = Args::parse();
 

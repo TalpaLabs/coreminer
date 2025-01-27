@@ -28,15 +28,6 @@ jobs:
         run: |
           rustup component add rustfmt
           rustup component add clippy
-      - name: config custom registry
-        run: |
-          mkdir -p ~/.cargo/
-          echo "" > ~/.cargo/config.toml
-          echo "[registry]" >> ~/.cargo/config.toml
-          echo 'cscherr = "cscherr"' >> ~/.cargo/config.toml
-          echo '[registries.cscherr]' >> ~/.cargo/config.toml
-          echo 'index = "https://git.cscherr.de/PlexSheep/_cargo-index.git"' >> ~/.cargo/config.toml
-          cat ~/.cargo/config.toml
       - name: cargo clippy check
         run: cargo clippy --all-features --all-targets --workspace
       - name: cargo clippy fix

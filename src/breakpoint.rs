@@ -23,8 +23,13 @@ impl Breakpoint {
         }
     }
 
+    #[inline]
+    pub fn is_enabled(&self) -> bool {
+        self.saved_data.is_some()
+    }
+
     pub fn enable(&mut self) -> Result<()> {
-        if self.saved_data.is_some() {
+        if self.is_enabled() {
             return Err(DebuggerError::BreakpointIsAlreadyEnabled);
         }
 
@@ -52,7 +57,7 @@ impl Breakpoint {
 
 impl Drop for Breakpoint {
     fn drop(&mut self) {
-        if self.saved_data.is_some() {
+        if self.is_enabled() {
             self.disable()
                 .expect("could not disable breakpoint while dropping")
         }

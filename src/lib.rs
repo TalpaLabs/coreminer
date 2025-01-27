@@ -33,6 +33,24 @@ impl From<usize> for Addr {
     }
 }
 
+impl From<u64> for Addr {
+    fn from(value: u64) -> Self {
+        Addr(value as RawPointer)
+    }
+}
+
+impl From<Addr> for Word {
+    fn from(value: Addr) -> Self {
+        value.0 as Word
+    }
+}
+
+impl From<Addr> for u64 {
+    fn from(value: Addr) -> Self {
+        value.0 as u64
+    }
+}
+
 pub(crate) fn wmem(pid: Pid, addr: Addr, value: Word) -> Result<()> {
     Ok(ptrace::write(pid, addr.into(), value)?)
 }

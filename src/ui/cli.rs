@@ -69,7 +69,7 @@ impl DebuggerUI for CliUi {
                     error!("wmem ADDR VAL");
                     continue;
                 }
-                let addr_raw: usize = usize::from_str_radix(&self.buf_preparsed[1], 16)?;
+                let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);
                 let value = i64::from_str_radix(&self.buf_preparsed[2], 16)?;
                 return Ok(Status::WriteMem(addr, value));
@@ -100,4 +100,26 @@ impl DebuggerUI for CliUi {
 
 fn starts_with_any(cmd: &str, prefixes: &[&str]) -> bool {
     prefixes.iter().any(|a| cmd.starts_with(a))
+}
+
+fn get_number(mut raw: &str) -> Result<u64> {
+    if raw.starts_with("0x") {
+        raw = raw.strip_prefix("0x").unwrap();
+    }
+
+    Ok(u64::from_str_radix(raw, 16)?)
+}
+
+#[cfg(test)]
+mod test {
+    use crate::ui::cli::get_number;
+
+    #[test]
+    fn test_get_number() {
+        assert_eq!(0x19u64, get_number("19").unwrap());
+        assert_eq!(0x19u64, get_number("0x19").unwrap());
+        assert_eq!(0x19u64, get_number("0x00019").unwrap());
+        assert_eq!(0x19u64, get_number("00019").unwrap());
+        assert_eq!(0x19usize, get_number("19").unwrap() as usize);
+    }
 }

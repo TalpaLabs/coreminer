@@ -113,7 +113,7 @@ impl<UI: DebuggerUI> Debugger<UI> {
                         Status::SetBreakpoint(addr) => self.set_bp(addr),
                         Status::DelBreakpoint(addr) => self.del_bp(addr),
                         Status::DumpRegisters => self.dump_regs(),
-                        Status::SetRegister(r, v) => self.set_regs(r, v),
+                        Status::SetRegister(r, v) => self.set_reg(r, v),
                         Status::WriteMem(a, v) => self.write_mem(a, v),
                         Status::ReadMem(a) => self.read_mem(a),
                     },
@@ -125,8 +125,9 @@ impl<UI: DebuggerUI> Debugger<UI> {
         Ok(())
     }
 
-    pub fn cont(&self, sig: Option<Signal>) -> Result<Feedback> {
+    pub fn cont(&mut self, sig: Option<Signal>) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
+        self.step_over_bp()?;
         ptrace::cont(self.debuggee.as_ref().unwrap().pid, sig)?;
 
         self.wait(&[])?; // wait until the debuggee is stopped again!!!
@@ -182,7 +183,45 @@ impl<UI: DebuggerUI> Debugger<UI> {
         Ok(Feedback::Ok)
     }
 
-    pub fn set_regs(&self, r: Register, v: u64) -> Result<Feedback> {
+    pub fn get_reg(&self, r: Register) -> Result<u64> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+        let regs = ptrace::getregs(dbge.pid)?;
+
+        let v = match r {
+            Register::r9 => regs.r9,
+            Register::r8 => regs.r8,
+            Register::r10 => regs.r10,
+            Register::r11 => regs.r11,
+            Register::r12 => regs.r12,
+            Register::r13 => regs.r13,
+            Register::r14 => regs.r14,
+            Register::r15 => regs.r15,
+            Register::rip => regs.rip,
+            Register::rbp => regs.rbp,
+            Register::rax => regs.rax,
+            Register::rcx => regs.rcx,
+            Register::rbx => regs.rbx,
+            Register::rdx => regs.rdx,
+            Register::rsi => regs.rsi,
+            Register::rsp => regs.rsp,
+            Register::rdi => regs.rdi,
+            Register::orig_rax => regs.orig_rax,
+            Register::eflags => regs.eflags,
+            Register::es => regs.es,
+            Register::cs => regs.cs,
+            Register::ss => regs.ss,
+            Register::fs_base => regs.fs_base,
+            Register::fs => regs.fs,
+            Register::gs_base => regs.gs_base,
+            Register::gs => regs.gs,
+            Register::ds => regs.ds,
+        };
+
+        Ok(v)
+    }
+
+    pub fn set_reg(&self, r: Register, v: u64) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
         let mut regs = ptrace::getregs(dbge.pid)?;
@@ -230,6 +269,7 @@ impl<UI: DebuggerUI> Debugger<UI> {
 
         Ok(Feedback::Word(w))
     }
+
     pub fn write_mem(&self, addr: Addr, value: Word) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
@@ -237,5 +277,39 @@ impl<UI: DebuggerUI> Debugger<UI> {
         wmem(dbge.pid, addr, value)?;
 
         Ok(Feedback::Ok)
+    }
+
+    pub fn single_step(&self) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+
+        ptrace::step(dbge.pid, None)?;
+
+        Ok(Feedback::Ok)
+    }
+
+    pub fn step_over_bp(&mut self) -> Result<()> {
+        self.err_if_no_debuggee()?;
+        let mut dbge = self.debuggee.take().unwrap();
+
+        let maybe_bp_addr: Addr = (self.get_reg(Register::rip)? - 1).into();
+        if let Some(bp) = dbge.breakpoints.get_mut(&maybe_bp_addr) {
+            if bp.is_enabled() {
+                let here_is_the_bp = maybe_bp_addr;
+                self.set_reg(Register::rip, here_is_the_bp.into())?;
+                bp.disable()?;
+
+                match self.single_step()? {
+                    Feedback::Ok => (),
+                    _ => panic!("single step returned a feedback other than Ok"),
+                }
+                self.wait(&[])?; // wait for it to stop again
+                bp.enable()?;
+            }
+        }
+
+        self.debuggee = Some(dbge);
+
+        Ok(())
     }
 }

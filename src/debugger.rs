@@ -108,13 +108,14 @@ impl<UI: DebuggerUI> Debugger<UI> {
                     }
                     Ok(s) => match s {
                         Status::DebuggerQuit => break,
-                        Status::Continue => self.cont(None)?,
-                        Status::SetBreakpoint(addr) => self.set_bp(addr)?,
-                        Status::DelBreakpoint(addr) => self.del_bp(addr)?,
-                        Status::DumpRegisters => self.dump_regs()?,
+                        Status::Continue => self.cont(None),
+                        Status::SetBreakpoint(addr) => self.set_bp(addr),
+                        Status::DelBreakpoint(addr) => self.del_bp(addr),
+                        Status::DumpRegisters => self.dump_regs(),
                     },
                 }
-            };
+            }
+            .into();
         }
 
         Ok(())

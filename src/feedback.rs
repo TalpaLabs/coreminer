@@ -22,3 +22,12 @@ impl Display for Feedback {
         Ok(())
     }
 }
+
+impl From<Result<Feedback, DebuggerError>> for Feedback {
+    fn from(value: Result<Feedback, DebuggerError>) -> Self {
+        match value {
+            Ok(f) => f,
+            Err(e) => Feedback::Error(e),
+        }
+    }
+}

@@ -12,7 +12,7 @@ use tracing::{debug, error, info, warn};
 use crate::breakpoint::{Addr, Breakpoint};
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
-use crate::ui::{DebuggerUI, Status};
+use crate::ui::{DebuggerUI, Register, Status};
 
 #[derive(Debug, Clone)]
 pub struct Debugger<UI: DebuggerUI> {
@@ -112,6 +112,7 @@ impl<UI: DebuggerUI> Debugger<UI> {
                         Status::SetBreakpoint(addr) => self.set_bp(addr),
                         Status::DelBreakpoint(addr) => self.del_bp(addr),
                         Status::DumpRegisters => self.dump_regs(),
+                        Status::SetRegister(r, v) => self.set_regs(r, v),
                     },
                 }
             }
@@ -174,6 +175,46 @@ impl<UI: DebuggerUI> Debugger<UI> {
         } else {
             warn!("removed a breakpoint at {addr:x?} that did not exist");
         }
+
+        Ok(Feedback::Ok)
+    }
+
+    pub fn set_regs(&self, r: Register, v: u64) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+        let mut regs = ptrace::getregs(dbge.pid)?;
+
+        match r {
+            Register::r9 => regs.r9 = v,
+            Register::r8 => regs.r8 = v,
+            Register::r10 => regs.r10 = v,
+            Register::r11 => regs.r11 = v,
+            Register::r12 => regs.r12 = v,
+            Register::r13 => regs.r13 = v,
+            Register::r14 => regs.r14 = v,
+            Register::r15 => regs.r15 = v,
+            Register::rip => regs.rip = v,
+            Register::rbp => regs.rbp = v,
+            Register::rax => regs.rax = v,
+            Register::rcx => regs.rcx = v,
+            Register::rbx => regs.rbx = v,
+            Register::rdx => regs.rdx = v,
+            Register::rsi => regs.rsi = v,
+            Register::rsp => regs.rsp = v,
+            Register::rdi => regs.rdi = v,
+            Register::orig_rax => regs.orig_rax = v,
+            Register::eflags => regs.eflags = v,
+            Register::es => regs.es = v,
+            Register::cs => regs.cs = v,
+            Register::ss => regs.ss = v,
+            Register::fs_base => regs.fs_base = v,
+            Register::fs => regs.fs = v,
+            Register::gs_base => regs.gs_base = v,
+            Register::gs => regs.gs = v,
+            Register::ds => regs.ds = v,
+        }
+
+        ptrace::setregs(dbge.pid, regs)?;
 
         Ok(Feedback::Ok)
     }

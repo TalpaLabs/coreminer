@@ -22,6 +22,8 @@ pub enum DebuggerError {
     BreakpointIsAlreadyDisabled,
     #[error("Could not parse integer: {0}")]
     ParseInt(#[from] std::num::ParseIntError),
+    #[error("Could not parse string: {0}")]
+    ParseStr(String),
     #[error("Error while getting cli input: {0}")]
     CliUiDialogueError(#[from] dialoguer::Error),
 }

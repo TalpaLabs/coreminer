@@ -1,7 +1,9 @@
+use std::str::FromStr;
+
 use dialoguer::BasicHistory;
 use tracing::{error, info, trace, warn};
 
-use super::{DebuggerUI, Status};
+use super::{DebuggerUI, Register, Status};
 use crate::breakpoint::Addr;
 use crate::errors::Result;
 use crate::feedback::Feedback;
@@ -28,6 +30,7 @@ impl CliUi {
             .interact_text()?;
         trace!("processing '{}'", self.buf);
         self.buf_preparsed = self.buf.split_whitespace().map(|a| a.to_string()).collect();
+        trace!("preparsed: {:?}", self.buf_preparsed);
         Ok(())
     }
 }
@@ -54,7 +57,23 @@ impl DebuggerUI for CliUi {
                 let addr: Addr = Addr::from(addr_raw);
                 return Ok(Status::DelBreakpoint(addr));
             } else if starts_with_any(&self.buf_preparsed[0], &["regs"]) {
-                return Ok(Status::DumpRegisters);
+                if self.buf_preparsed.len() < 2 {
+                    error!("need to give a subcommand");
+                    continue;
+                }
+                if self.buf_preparsed[1] == "get" {
+                    return Ok(Status::DumpRegisters);
+                } else if self.buf_preparsed[1] == "set" {
+                    if self.buf_preparsed.len() != 4 {
+                        error!("regs set REGISTER VALUE");
+                        continue;
+                    }
+                    let register = Register::from_str(&self.buf_preparsed[2])?;
+                    let value = u64::from_str_radix(&self.buf_preparsed[3], 16)?;
+                    return Ok(Status::SetRegister(register, value));
+                } else {
+                    error!("only set and get is possible")
+                }
             } else {
                 error!("bad input, use help if we already bothered to implement that");
             }

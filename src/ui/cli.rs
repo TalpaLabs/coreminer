@@ -49,11 +49,11 @@ impl DebuggerUI for CliUi {
             if starts_with_any(&self.buf_preparsed[0], &["cont", "c"]) {
                 return Ok(Status::Continue);
             } else if starts_with_any(&self.buf_preparsed[0], &["break", "bp"]) {
-                let addr_raw: usize = usize::from_str_radix(&self.buf_preparsed[1], 16)?;
+                let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);
                 return Ok(Status::SetBreakpoint(addr));
             } else if starts_with_any(&self.buf_preparsed[0], &["delbreak", "dbp"]) {
-                let addr_raw: usize = usize::from_str_radix(&self.buf_preparsed[1], 16)?;
+                let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);
                 return Ok(Status::DelBreakpoint(addr));
             } else if starts_with_any(&self.buf_preparsed[0], &["rmem"]) {
@@ -61,7 +61,7 @@ impl DebuggerUI for CliUi {
                     error!("rmem ADDR");
                     continue;
                 }
-                let addr_raw: usize = usize::from_str_radix(&self.buf_preparsed[1], 16)?;
+                let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);
                 return Ok(Status::ReadMem(addr));
             } else if starts_with_any(&self.buf_preparsed[0], &["wmem"]) {
@@ -71,7 +71,7 @@ impl DebuggerUI for CliUi {
                 }
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);
-                let value = i64::from_str_radix(&self.buf_preparsed[2], 16)?;
+                let value: i64 = get_number(&self.buf_preparsed[1])? as i64;
                 return Ok(Status::WriteMem(addr, value));
             } else if starts_with_any(&self.buf_preparsed[0], &["regs"]) {
                 if self.buf_preparsed.len() < 2 {
@@ -86,7 +86,7 @@ impl DebuggerUI for CliUi {
                         continue;
                     }
                     let register = Register::from_str(&self.buf_preparsed[2])?;
-                    let value = u64::from_str_radix(&self.buf_preparsed[3], 16)?;
+                    let value: u64 = get_number(&self.buf_preparsed[1])?;
                     return Ok(Status::SetRegister(register, value));
                 } else {
                     error!("only set and get is possible")

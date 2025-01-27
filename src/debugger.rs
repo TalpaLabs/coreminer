@@ -75,7 +75,7 @@ impl<UI: DebuggerUI> Debugger<UI> {
                     personality::set(Persona::ADDR_NO_RANDOMIZE)?; // FIXME: maybe remove this
                     ptrace::traceme()?;
                     info!("starting the debuggee process");
-                    let cpath = CString::from_str(path.to_string_lossy().to_string().as_str())?;
+                    let cpath = CString::new(path.to_string_lossy().to_string().as_str())?;
                     execv(&cpath, args)?; // NOTE: unsure if args[0] is set to the executable
                     unreachable!()
                 }

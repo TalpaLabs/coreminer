@@ -7,7 +7,7 @@ use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::sys::{personality, ptrace};
 use nix::unistd::{execv, Pid};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::breakpoint::Breakpoint;
 use crate::errors::{DebuggerError, Result};
@@ -289,26 +289,44 @@ impl<UI: DebuggerUI> Debugger<UI> {
     }
 
     pub fn step_over_bp(&mut self) -> Result<()> {
+        // This function is hell with the borrow checker.
+        // You can only have a single mutable refence OR n immutable references
+        // Thus, you cannot simply `let bp = ...` at the start and later use things like
+        // `self.single_step`
         self.err_if_no_debuggee()?;
-        let mut dbge = self.debuggee.take().unwrap();
-
         let maybe_bp_addr: Addr = (self.get_reg(Register::rip)? - 1).into();
-        if let Some(bp) = dbge.breakpoints.get_mut(&maybe_bp_addr) {
-            if bp.is_enabled() {
-                let here_is_the_bp = maybe_bp_addr;
-                self.set_reg(Register::rip, here_is_the_bp.into())?;
-                bp.disable()?;
 
-                match self.single_step()? {
-                    Feedback::Ok => (),
-                    _ => panic!("single step returned a feedback other than Ok"),
-                }
-                self.wait(&[])?; // wait for it to stop again
-                bp.enable()?;
+        if self
+            .debuggee
+            .as_mut()
+            .unwrap()
+            .breakpoints
+            .get_mut(&maybe_bp_addr)
+            .is_some_and(|a| a.is_enabled())
+        {
+            let here_is_the_bp = maybe_bp_addr;
+            self.set_reg(Register::rip, here_is_the_bp.into())?;
+            self.debuggee
+                .as_mut()
+                .unwrap()
+                .breakpoints
+                .get_mut(&maybe_bp_addr)
+                .unwrap()
+                .disable()?;
+
+            match self.single_step()? {
+                Feedback::Ok => (),
+                _ => panic!("single step returned a feedback other than Ok"),
             }
+            self.wait(&[])?; // wait for it to stop again
+            self.debuggee
+                .as_mut()
+                .unwrap()
+                .breakpoints
+                .get_mut(&maybe_bp_addr)
+                .unwrap()
+                .enable()?;
         }
-
-        self.debuggee = Some(dbge);
 
         Ok(())
     }

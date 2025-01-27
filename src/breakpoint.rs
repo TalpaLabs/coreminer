@@ -42,7 +42,7 @@ impl Breakpoint {
     }
 
     pub fn disable(&mut self) -> Result<()> {
-        if self.saved_data.is_none() {
+        if !self.is_enabled() {
             return Err(DebuggerError::BreakpointIsAlreadyDisabled);
         }
 

@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::ffi::CString;
-use std::fs;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
 
 use nix::sys::personality::Persona;
 use nix::sys::signal::Signal;
@@ -31,7 +29,7 @@ pub struct Debuggee<'executable> {
     dbginfo: CMDebugInfo<'executable>,
 }
 
-impl<'executable> Debuggee<'executable> {
+impl Debuggee<'_> {
     pub fn kill(&self) -> Result<()> {
         ptrace::kill(self.pid)?;
         Ok(())

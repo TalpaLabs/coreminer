@@ -26,4 +26,8 @@ pub enum DebuggerError {
     ParseStr(String),
     #[error("Error while getting cli input: {0}")]
     CliUiDialogueError(#[from] dialoguer::Error),
+    #[error("Error while reading information from the executable file: {0}")]
+    Object(#[from] object::Error),
+    #[error("Error while working with the DWARF debug information: {0}")]
+    Dwarf(#[from] gimli::Error),
 }

@@ -4,6 +4,7 @@ use nix::unistd::Pid;
 use crate::errors::Result;
 
 pub mod breakpoint;
+pub mod dbginfo;
 pub mod debugger;
 pub mod errors;
 pub mod feedback;

@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::fs;
 use std::path::{Path, PathBuf};
+use std::rc::Rc;
 
 use nix::sys::personality::Persona;
 use nix::sys::signal::Signal;
@@ -10,42 +12,48 @@ use nix::unistd::{execv, Pid};
 use tracing::{debug, error, info, warn};
 
 use crate::breakpoint::Breakpoint;
+use crate::dbginfo::CMDebugInfo;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Register, Status};
 use crate::{rmem, wmem, Addr, Word};
 
-#[derive(Debug, Clone)]
-pub struct Debugger<UI: DebuggerUI> {
-    debuggee: Option<Debuggee>,
+pub struct Debugger<'executable, UI: DebuggerUI> {
+    executable_path: PathBuf,
+    debuggee: Option<Debuggee<'executable>>,
     ui: UI,
-    executable: PathBuf,
+    obj_raw: Vec<u8>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Debuggee {
+pub struct Debuggee<'executable> {
     pid: Pid,
     breakpoints: HashMap<Addr, Breakpoint>,
+    dbginfo: CMDebugInfo<'executable>,
 }
 
-impl Debuggee {
+impl<'executable> Debuggee<'executable> {
     pub fn kill(&self) -> Result<()> {
         ptrace::kill(self.pid)?;
         Ok(())
     }
 }
 
-impl<UI: DebuggerUI> Debugger<UI> {
-    pub fn build(executable: impl AsRef<Path>, ui: UI) -> Self {
-        Debugger {
-            executable: executable.as_ref().to_owned(),
+impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
+    pub fn build(executable_path: impl AsRef<Path>, ui: UI) -> Result<Self> {
+        Ok(Debugger {
             debuggee: None,
             ui,
-        }
+            executable_path: executable_path.as_ref().to_owned(),
+            obj_raw: Vec::new(),
+        })
     }
 
-    pub fn launch_debuggee(&mut self, args: &[CString]) -> Result<()> {
-        let path: &Path = self.executable.as_ref();
+    pub fn launch_debuggee(
+        &mut self,
+        args: &[CString],
+        executable_obj_data: object::File<'executable>,
+    ) -> Result<()> {
+        let path: &Path = self.executable_path.as_ref();
         if !path.exists() {
             let err = DebuggerError::ExecutableDoesNotExist(path.to_string_lossy().to_string());
             error!("{err}");
@@ -57,6 +65,8 @@ impl<UI: DebuggerUI> Debugger<UI> {
             return Err(err);
         }
 
+        let dbginfo: CMDebugInfo = CMDebugInfo::build(executable_obj_data)?;
+
         let fork_res = unsafe { nix::unistd::fork() };
         match fork_res {
             Err(e) => {
@@ -67,6 +77,7 @@ impl<UI: DebuggerUI> Debugger<UI> {
                 nix::unistd::ForkResult::Parent { child: pid } => {
                     self.debuggee = Some(Debuggee {
                         pid,
+                        dbginfo,
                         breakpoints: HashMap::new(),
                     });
                     Ok(())

@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 
-use nix::sys::personality::Persona;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::sys::{personality, ptrace};
 use nix::unistd::{execv, Pid};
-use tracing::{debug, error, info, warn};
+use proc_maps::MapRange;
+use tracing::{debug, error, info, trace, warn};
 
 use crate::breakpoint::Breakpoint;
 use crate::dbginfo::CMDebugInfo;
@@ -20,7 +20,6 @@ pub struct Debugger<'executable, UI: DebuggerUI> {
     executable_path: PathBuf,
     debuggee: Option<Debuggee<'executable>>,
     ui: UI,
-    obj_raw: Vec<u8>,
 }
 
 pub struct Debuggee<'executable> {
@@ -34,6 +33,15 @@ impl Debuggee<'_> {
         ptrace::kill(self.pid)?;
         Ok(())
     }
+
+    #[inline]
+    pub fn get_process_map(&self) -> Result<Vec<MapRange>> {
+        Ok(proc_maps::get_process_maps(self.pid.into())?)
+    }
+
+    pub fn get_base_addr(&self) -> Result<Addr> {
+        Ok(self.get_process_map()?[0].start().into())
+    }
 }
 
 impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
@@ -42,7 +50,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             debuggee: None,
             ui,
             executable_path: executable_path.as_ref().to_owned(),
-            obj_raw: Vec::new(),
         })
     }
 
@@ -81,10 +88,12 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                     Ok(())
                 }
                 nix::unistd::ForkResult::Child => {
-                    personality::set(Persona::ADDR_NO_RANDOMIZE)?; // FIXME: maybe remove this
-                    ptrace::traceme()?;
                     info!("starting the debuggee process");
                     let cpath = CString::new(path.to_string_lossy().to_string().as_str())?;
+                    eprintln!("DOING THE TRACEME");
+                    ptrace::traceme()
+                        .inspect_err(|e| eprintln!("error while doing traceme: {e}"))?;
+                    eprintln!("DOING THE EXECV");
                     execv(&cpath, args)?; // NOTE: unsure if args[0] is set to the executable
                     unreachable!()
                 }
@@ -105,7 +114,12 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn run_debugger(&mut self) -> Result<()> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
         self.wait(&[])?; // wait until the debuggee is stopped
+
+        info!("PID: {}", dbge.pid);
+        info!("base addr: {}", dbge.get_base_addr()?);
 
         let mut feedback: Feedback = Feedback::Ok;
         loop {

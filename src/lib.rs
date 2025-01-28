@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use nix::sys::ptrace;
 use nix::unistd::Pid;
 
@@ -15,6 +17,12 @@ pub type RawPointer = *mut std::ffi::c_void;
 
 #[derive(Hash, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Addr(pub RawPointer);
+
+impl Display for Addr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#018x}", self.0 as usize)
+    }
+}
 
 impl From<RawPointer> for Addr {
     fn from(value: RawPointer) -> Self {

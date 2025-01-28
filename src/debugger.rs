@@ -283,6 +283,7 @@ impl<UI: DebuggerUI> Debugger<UI> {
         self.err_if_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
 
+        // FIXME: this is probably noticeable
         ptrace::step(dbge.pid, None)?;
 
         Ok(Feedback::Ok)

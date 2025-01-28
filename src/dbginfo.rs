@@ -1,11 +1,7 @@
-use std::fs;
-use std::path::Path;
 use std::rc::Rc;
 
-use gimli::write::EndianVec;
 use gimli::{EndianRcSlice, NativeEndian};
-use object::{File, Object, ObjectSection};
-use ouroboros::self_referencing;
+use object::{Object, ObjectSection};
 
 use crate::errors::{DebuggerError, Result};
 

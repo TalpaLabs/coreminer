@@ -1,2 +1,2 @@
 #!/bin/bash
-gcc ./examples/dummy.c --output ./target/debug/dummy
+gcc -g ./examples/dummy.c --output ./target/debug/dummy

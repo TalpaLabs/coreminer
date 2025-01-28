@@ -14,7 +14,7 @@ use crate::dbginfo::CMDebugInfo;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Register, Status};
-use crate::{rmem, wmem, Addr, Word};
+use crate::{disassemble, rmem, wmem, Addr, Word};
 
 pub struct Debugger<'executable, UI: DebuggerUI> {
     executable_path: PathBuf,
@@ -41,6 +41,19 @@ impl Debuggee<'_> {
 
     pub fn get_base_addr(&self) -> Result<Addr> {
         Ok(self.get_process_map()?[0].start().into())
+    }
+
+    pub fn disassemble(&self, addr: Addr) -> Result<String> {
+        trace!("reading data at {addr}");
+        let data = [
+            rmem(self.pid, addr)?,
+            rmem(self.pid, addr + 8)?,
+            rmem(self.pid, addr + 16)?,
+        ];
+        trace!("the data is {:#018x?}", data);
+        let data_raw: Vec<u8> = data.iter().flat_map(|a| a.to_ne_bytes()).collect();
+        let out: String = disassemble::disassemble(&data_raw)?;
+        Ok(out)
     }
 }
 
@@ -139,6 +152,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         Status::SetRegister(r, v) => self.set_reg(r, v),
                         Status::WriteMem(a, v) => self.write_mem(a, v),
                         Status::ReadMem(a) => self.read_mem(a),
+                        Status::DisassembleAt(a) => self.disassemble_at(a),
                     },
                 }
             }
@@ -353,5 +367,14 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         }
 
         Ok(())
+    }
+
+    pub fn disassemble_at(&self, addr: Addr) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+
+        let t = dbge.disassemble(addr)?;
+
+        Ok(Feedback::Text(t))
     }
 }

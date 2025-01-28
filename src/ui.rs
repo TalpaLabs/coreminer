@@ -7,6 +7,7 @@ use crate::{Addr, Word};
 pub mod cli;
 
 pub enum Status {
+    DisassembleAt(Addr),
     DebuggerQuit,
     Continue,
     SetBreakpoint(Addr),

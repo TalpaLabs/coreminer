@@ -7,6 +7,7 @@ use crate::Word;
 
 #[derive(Debug)]
 pub enum Feedback {
+    Text(String),
     Word(Word),
     Registers(user_regs_struct),
     Error(DebuggerError),
@@ -20,6 +21,7 @@ impl Display for Feedback {
             Feedback::Error(e) => write!(f, "Error: {e}")?,
             Feedback::Registers(regs) => write!(f, "Registers: {regs:#x?}")?,
             Feedback::Word(w) => write!(f, "Word: {w:#018x?}")?,
+            Feedback::Text(t) => write!(f, "Text: {t}")?,
         }
 
         Ok(())

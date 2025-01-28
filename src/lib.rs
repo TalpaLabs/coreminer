@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::ops::{Add, Sub};
 
 use nix::sys::ptrace;
 use nix::unistd::Pid;
@@ -8,6 +9,7 @@ use crate::errors::Result;
 pub mod breakpoint;
 pub mod dbginfo;
 pub mod debugger;
+pub mod disassemble;
 pub mod errors;
 pub mod feedback;
 pub mod ui;
@@ -21,6 +23,34 @@ pub struct Addr(pub RawPointer);
 impl Display for Addr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:#018x}", self.0 as usize)
+    }
+}
+
+impl Add for Addr {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output {
+        Self((self.0 as usize + rhs.0 as usize) as RawPointer)
+    }
+}
+
+impl Add<usize> for Addr {
+    type Output = Self;
+    fn add(self, rhs: usize) -> Self::Output {
+        Self((self.0 as usize + rhs) as RawPointer)
+    }
+}
+
+impl Sub for Addr {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self((self.0 as usize - rhs.0 as usize) as RawPointer)
+    }
+}
+
+impl Sub<usize> for Addr {
+    type Output = Self;
+    fn sub(self, rhs: usize) -> Self::Output {
+        Self((self.0 as usize - rhs) as RawPointer)
     }
 }
 

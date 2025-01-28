@@ -20,6 +20,7 @@ gimli = { version = "0.31.1", default-features = true, features = [
 	"std",
 	"read",
 ] }
+iced-x86 = "1.21.0"
 nix = { version = "0.29.0", features = ["personality", "process", "ptrace"] }
 object = "0.36.7"
 ouroboros = "0.18.5"

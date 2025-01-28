@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 
+use nix::sys::ptrace;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
-use nix::sys::{personality, ptrace};
 use nix::unistd::{execv, Pid};
 use proc_maps::MapRange;
 use tracing::{debug, error, info, trace, warn};

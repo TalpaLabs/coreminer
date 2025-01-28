@@ -3,7 +3,7 @@ use std::rc::Rc;
 use gimli::{EndianRcSlice, NativeEndian};
 use object::{Object, ObjectSection};
 
-use crate::errors::{DebuggerError, Result};
+use crate::errors::Result;
 
 // the gimli::Reader we use
 type GimliRd = EndianRcSlice<NativeEndian>;

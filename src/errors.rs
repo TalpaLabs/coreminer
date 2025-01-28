@@ -30,4 +30,6 @@ pub enum DebuggerError {
     Object(#[from] object::Error),
     #[error("Error while working with the DWARF debug information: {0}")]
     Dwarf(#[from] gimli::Error),
+    #[error("Error while loading the DWARF debug information into gimli")]
+    GimliLoad,
 }

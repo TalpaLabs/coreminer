@@ -5,8 +5,7 @@ use crate::errors::Result;
 const CODE_BITNESS: u32 = 64;
 
 use iced_x86::{
-    Decoder, DecoderOptions, Formatter, FormatterOutput, FormatterTextKind, IntelFormatter,
-    NasmFormatter,
+    Decoder, DecoderOptions, Formatter, FormatterOutput, FormatterTextKind, NasmFormatter,
 };
 
 // Custom formatter output that stores the output in a vector.

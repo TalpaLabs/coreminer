@@ -35,10 +35,19 @@ impl CliUi {
     }
 }
 
+// Für alle values die wir brauchen
+//  1. abfragen von basis infos
+//  2. coreminer macht was mit der abfrage
+//  3. process wird wieder mit dem passenden feedback gecalled
+//  4. infos updaten
+// 5. ERST JETZT UI
+
 impl DebuggerUI for CliUi {
     fn process(&mut self, feedback: &Feedback) -> crate::errors::Result<Status> {
         if let Feedback::Error(e) = feedback {
             warn!("{e}");
+        } else if let Feedback::Text(t) = feedback {
+            info!("\n{t}");
         } else {
             info!("{feedback}");
         }
@@ -50,7 +59,7 @@ impl DebuggerUI for CliUi {
                 return Ok(Status::Continue);
             } else if starts_with_any(&self.buf_preparsed[0], &["d", "dis"]) {
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
-                let addr: Addr = Addr::from(addr_raw);
+                let addr = Addr::from(addr_raw);
                 return Ok(Status::DisassembleAt(addr));
             } else if starts_with_any(&self.buf_preparsed[0], &["break", "bp"]) {
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;

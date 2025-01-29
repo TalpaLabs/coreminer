@@ -1,50 +1,72 @@
-use std::fmt::Write;
+use std::fmt::{Display, Write};
 
 use crate::errors::Result;
 
-use iced_x86::{Decoder, DecoderOptions, Formatter, Instruction, NasmFormatter};
+const CODE_BITNESS: u32 = 64;
 
-pub fn disassemble(data: &[u8]) -> Result<String> {
-    let mut decoder = Decoder::with_ip(
-        EXAMPLE_CODE_BITNESS,
-        data,
-        EXAMPLE_CODE_RIP,
-        DecoderOptions::NONE,
-    );
+use iced_x86::{
+    Decoder, DecoderOptions, Formatter, FormatterOutput, FormatterTextKind, IntelFormatter,
+    NasmFormatter,
+};
+
+// Custom formatter output that stores the output in a vector.
+struct MyFormatterOutput {
+    vec: Vec<(String, FormatterTextKind)>,
+}
+
+impl MyFormatterOutput {
+    pub fn new() -> Self {
+        Self { vec: Vec::new() }
+    }
+}
+
+impl FormatterOutput for MyFormatterOutput {
+    fn write(&mut self, text: &str, kind: FormatterTextKind) {
+        // This allocates a string. If that's a problem, just call print!() here
+        // instead of storing the result in a vector.
+        self.vec.push((String::from(text), kind));
+    }
+}
+
+pub fn disassemble(data: &[u8], rip: u64) -> Result<String> {
+    let mut buf = String::new();
+    let bytes = data;
+    let mut decoder = Decoder::with_ip(CODE_BITNESS, bytes, rip, DecoderOptions::NONE);
 
     let mut formatter = NasmFormatter::new();
-    formatter.options_mut().set_digit_separator("`");
-    formatter.options_mut().set_first_operand_char_index(10);
+    // padding
+    formatter.options_mut().set_first_operand_char_index(16);
 
-    let mut output = String::new();
-    let mut instruction = Instruction::default();
+    // numbers stuff
+    formatter.options_mut().set_hex_suffix("");
+    formatter.options_mut().set_hex_prefix("");
+    formatter.options_mut().set_decimal_suffix("");
+    formatter.options_mut().set_decimal_prefix("0d");
+    formatter.options_mut().set_octal_suffix("");
+    formatter.options_mut().set_octal_prefix("0o");
+    formatter.options_mut().set_binary_suffix("");
+    formatter.options_mut().set_binary_prefix("0b");
 
-    while decoder.can_decode() {
-        // There's also a decode() method that returns an instruction but that also
-        // means it copies an instruction (40 bytes):
-        //     instruction = decoder.decode();
-        decoder.decode_out(&mut instruction);
-
-        // Format the instruction ("disassemble" it)
+    // memory stuff
+    formatter.options_mut().set_show_symbol_address(true);
+    formatter.options_mut().set_rip_relative_addresses(false);
+    formatter
+        .options_mut()
+        .set_memory_size_options(iced_x86::MemorySizeOptions::Always);
+    let mut output = MyFormatterOutput::new();
+    for instruction in &mut decoder {
+        apbuf(&mut buf, format!("{:016x}\t", instruction.ip()));
+        output.vec.clear();
         formatter.format(&instruction, &mut output);
-
-        // Eg. "00007FFAC46ACDB2 488DAC2400FFFFFF     lea       rbp,[rsp-100h]"
-        writeln!(output, "{:016X} ", instruction.ip())
-            .expect("could not write to internal format buf");
-        let start_index = (instruction.ip() - EXAMPLE_CODE_RIP) as usize;
-        let instr_bytes = &data[start_index..start_index + instruction.len()];
-        for b in instr_bytes.iter() {
-            write!(output, "{:02X}", b).expect("could not write to internal format buf");
+        for (text, _kind) in output.vec.iter() {
+            apbuf(&mut buf, text);
         }
-        if instr_bytes.len() < HEXBYTES_COLUMN_BYTE_LENGTH {
-            for _ in 0..HEXBYTES_COLUMN_BYTE_LENGTH - instr_bytes.len() {
-                write!(output, "  ").expect("could not write to internal format buf");
-            }
-        }
+        apbuf(&mut buf, "\n");
     }
 
-    Ok(output)
+    Ok(buf)
 }
-const HEXBYTES_COLUMN_BYTE_LENGTH: usize = 10;
-const EXAMPLE_CODE_BITNESS: u32 = 64;
-const EXAMPLE_CODE_RIP: u64 = 0x0000_7FFA_C46A_CDA4;
+
+fn apbuf(buf: &mut String, text: impl Display) {
+    write!(buf, "{text}").expect("could not write to internal buffer at disassembly")
+}

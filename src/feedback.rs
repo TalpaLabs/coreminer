@@ -21,7 +21,7 @@ impl Display for Feedback {
             Feedback::Error(e) => write!(f, "Error: {e}")?,
             Feedback::Registers(regs) => write!(f, "Registers: {regs:#x?}")?,
             Feedback::Word(w) => write!(f, "Word: {w:#018x?}")?,
-            Feedback::Text(t) => write!(f, "Text: {t}")?,
+            Feedback::Text(t) => write!(f, "{t}")?,
         }
 
         Ok(())

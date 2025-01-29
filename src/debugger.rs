@@ -52,7 +52,7 @@ impl Debuggee<'_> {
         ];
         trace!("the data is {:#018x?}", data);
         let data_raw: Vec<u8> = data.iter().flat_map(|a| a.to_ne_bytes()).collect();
-        let out: String = disassemble::disassemble(&data_raw)?;
+        let out: String = disassemble::disassemble(&data_raw, addr.into())?;
         Ok(out)
     }
 }

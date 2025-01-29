@@ -7,8 +7,7 @@ use crate::Addr;
 const CODE_BITNESS: u32 = 64;
 
 use iced_x86::{
-    Decoder, DecoderOptions, Formatter, FormatterOutput, FormatterTextKind, IntelFormatter,
-    NasmFormatter,
+    Decoder, DecoderOptions, Formatter, FormatterOutput, FormatterTextKind, NasmFormatter,
 };
 
 type TextContent = (String, FormatterTextKind);

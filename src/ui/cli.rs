@@ -69,9 +69,14 @@ impl DebuggerUI for CliUi {
             if starts_with_any(&self.buf_preparsed[0], &["cont", "c"]) {
                 return Ok(Status::Continue);
             } else if starts_with_any(&self.buf_preparsed[0], &["d", "dis"]) {
+                if self.buf_preparsed.len() < 3 {
+                    error!("d ADDR LEN");
+                    continue;
+                }
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr = Addr::from(addr_raw);
-                return Ok(Status::DisassembleAt(addr, 240));
+                let len: usize = get_number(&self.buf_preparsed[2])? as usize;
+                return Ok(Status::DisassembleAt(addr, len));
             } else if starts_with_any(&self.buf_preparsed[0], &["break", "bp"]) {
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);

@@ -32,4 +32,6 @@ pub enum DebuggerError {
     Dwarf(#[from] gimli::Error),
     #[error("Error while loading the DWARF debug information into gimli")]
     GimliLoad,
+    #[error("Could not format: {0}")]
+    Format(#[from] std::fmt::Error),
 }

@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use nix::libc::user_regs_struct;
 
+use crate::disassemble::Disassembly;
 use crate::errors::DebuggerError;
 use crate::Word;
 
@@ -12,6 +13,7 @@ pub enum Feedback {
     Registers(user_regs_struct),
     Error(DebuggerError),
     Ok,
+    Disassembly(Disassembly),
 }
 
 impl Display for Feedback {
@@ -22,6 +24,7 @@ impl Display for Feedback {
             Feedback::Registers(regs) => write!(f, "Registers: {regs:#x?}")?,
             Feedback::Word(w) => write!(f, "Word: {w:#018x?}")?,
             Feedback::Text(t) => write!(f, "{t}")?,
+            Feedback::Disassembly(t) => write!(f, "{t:#?}")?,
         }
 
         Ok(())

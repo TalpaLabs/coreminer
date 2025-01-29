@@ -11,6 +11,7 @@ use tracing::{debug, error, info, trace, warn};
 
 use crate::breakpoint::Breakpoint;
 use crate::dbginfo::CMDebugInfo;
+use crate::disassemble::Disassembly;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Register, Status};
@@ -43,7 +44,7 @@ impl Debuggee<'_> {
         Ok(self.get_process_map()?[0].start().into())
     }
 
-    pub fn disassemble(&self, addr: Addr) -> Result<String> {
+    pub fn disassemble(&self, addr: Addr) -> Result<Disassembly> {
         trace!("reading data at {addr}");
         let data = [
             rmem(self.pid, addr)?,
@@ -52,7 +53,7 @@ impl Debuggee<'_> {
         ];
         trace!("the data is {:#018x?}", data);
         let data_raw: Vec<u8> = data.iter().flat_map(|a| a.to_ne_bytes()).collect();
-        let out: String = disassemble::disassemble(&data_raw, addr.into())?;
+        let out: Disassembly = Disassembly::disassemble(&data_raw, addr.into())?;
         Ok(out)
     }
 }
@@ -375,6 +376,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
         let t = dbge.disassemble(addr)?;
 
-        Ok(Feedback::Text(t))
+        Ok(Feedback::Disassembly(t))
     }
 }

@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use std::str::FromStr;
 
 use dialoguer::BasicHistory;
@@ -48,6 +49,16 @@ impl DebuggerUI for CliUi {
             warn!("{e}");
         } else if let Feedback::Text(t) = feedback {
             info!("\n{t}");
+        } else if let Feedback::Disassembly(d) = feedback {
+            let mut buf = String::new();
+            for (addr, content) in d.inner() {
+                write!(buf, "{addr}\t")?;
+                for (thing, _kind) in content {
+                    write!(buf, "{thing}")?;
+                }
+                writeln!(buf)?;
+            }
+            info!("\n{buf}");
         } else {
             info!("{feedback}");
         }

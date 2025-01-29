@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use addr2line::fallible_iterator::FallibleIterator;
-use clap::value_parser;
 use gimli::{EndianRcSlice, NativeEndian};
 use object::{Object, ObjectSection, ObjectSymbol};
 

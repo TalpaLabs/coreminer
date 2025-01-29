@@ -1,5 +1,5 @@
 use std::fmt::Display;
-use std::io::{Read, Seek};
+use std::io::{Read, Seek, Write};
 use std::ops::{Add, Sub};
 
 use nix::sys::ptrace;
@@ -106,6 +106,17 @@ pub(crate) fn mem_read(data_raw: &mut [u8], pid: Pid, addr: Addr) -> Result<usiz
         .open(format!("/proc/{pid}/mem"))?;
     file.seek(std::io::SeekFrom::Start(addr.into()))?;
     let len = file.read(data_raw)?;
+
+    Ok(len)
+}
+
+pub(crate) fn mem_write(data_raw: &[u8], pid: Pid, addr: Addr) -> Result<usize> {
+    let mut file = std::fs::File::options()
+        .read(false)
+        .write(true)
+        .open(format!("/proc/{pid}/mem"))?;
+    file.seek(std::io::SeekFrom::Start(addr.into()))?;
+    let len = file.write(data_raw)?;
 
     Ok(len)
 }

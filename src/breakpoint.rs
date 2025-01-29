@@ -1,7 +1,7 @@
 use nix::unistd::Pid;
 
 use crate::errors::{DebuggerError, Result};
-use crate::{rmem, wmem, Addr};
+use crate::{mem_read_word, mem_write_word, Addr};
 
 pub const INT3: i64 = 0xcc;
 pub const WORD_MASK: i64 = 0xff;
@@ -33,10 +33,10 @@ impl Breakpoint {
             return Err(DebuggerError::BreakpointIsAlreadyEnabled);
         }
 
-        let data_word: i64 = rmem(self.pid, self.addr)?;
+        let data_word: i64 = mem_read_word(self.pid, self.addr)?;
         self.saved_data = Some((data_word & WORD_MASK) as u8);
         let data_word_modified: i64 = (data_word & WORD_MASK_INV) | INT3;
-        wmem(self.pid, self.addr, data_word_modified)?;
+        mem_write_word(self.pid, self.addr, data_word_modified)?;
 
         Ok(())
     }
@@ -46,9 +46,9 @@ impl Breakpoint {
             return Err(DebuggerError::BreakpointIsAlreadyDisabled);
         }
 
-        let data_word: i64 = rmem(self.pid, self.addr)?;
+        let data_word: i64 = mem_read_word(self.pid, self.addr)?;
         let data_word_restored: i64 = (data_word & WORD_MASK_INV) | self.saved_data.unwrap() as i64;
-        wmem(self.pid, self.addr, data_word_restored)?;
+        mem_write_word(self.pid, self.addr, data_word_restored)?;
         self.saved_data = None;
 
         Ok(())

@@ -15,7 +15,7 @@ use crate::disassemble::Disassembly;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Register, Status};
-use crate::{disassemble, rmem, wmem, Addr, Word};
+use crate::{disassemble, mem_read, mem_read_word, mem_write_word, Addr, Word};
 
 pub struct Debugger<'executable, UI: DebuggerUI> {
     executable_path: PathBuf,
@@ -44,16 +44,10 @@ impl Debuggee<'_> {
         Ok(self.get_process_map()?[0].start().into())
     }
 
-    pub fn disassemble(&self, addr: Addr) -> Result<Disassembly> {
-        trace!("reading data at {addr}");
-        let data = [
-            rmem(self.pid, addr)?,
-            rmem(self.pid, addr + 8)?,
-            rmem(self.pid, addr + 16)?,
-        ];
-        trace!("the data is {:#018x?}", data);
-        let data_raw: Vec<u8> = data.iter().flat_map(|a| a.to_ne_bytes()).collect();
-        let out: Disassembly = Disassembly::disassemble(&data_raw, addr.into())?;
+    pub fn disassemble(&self, addr: Addr, len: usize) -> Result<Disassembly> {
+        let mut data_raw: Vec<u8> = vec![0; len];
+        mem_read(&mut data_raw, self.pid, addr)?;
+        let out: Disassembly = Disassembly::disassemble(&data_raw, addr)?;
         Ok(out)
     }
 }
@@ -153,7 +147,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         Status::SetRegister(r, v) => self.set_reg(r, v),
                         Status::WriteMem(a, v) => self.write_mem(a, v),
                         Status::ReadMem(a) => self.read_mem(a),
-                        Status::DisassembleAt(a) => self.disassemble_at(a),
+                        Status::DisassembleAt(a, l) => self.disassemble_at(a, l),
                     },
                 }
             }
@@ -303,7 +297,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         self.err_if_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
 
-        let w = rmem(dbge.pid, addr)?;
+        let w = mem_read_word(dbge.pid, addr)?;
 
         Ok(Feedback::Word(w))
     }
@@ -312,7 +306,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         self.err_if_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
 
-        wmem(dbge.pid, addr, value)?;
+        mem_write_word(dbge.pid, addr, value)?;
 
         Ok(Feedback::Ok)
     }
@@ -370,11 +364,11 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(())
     }
 
-    pub fn disassemble_at(&self, addr: Addr) -> Result<Feedback> {
+    pub fn disassemble_at(&self, addr: Addr, len: usize) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
 
-        let t = dbge.disassemble(addr)?;
+        let t = dbge.disassemble(addr, len)?;
 
         Ok(Feedback::Disassembly(t))
     }

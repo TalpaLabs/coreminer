@@ -8,7 +8,7 @@ pub mod cli;
 
 pub enum Status {
     /// if None, then disassemble at rip register
-    DisassembleAt(Addr),
+    DisassembleAt(Addr, usize),
     DebuggerQuit,
     Continue,
     SetBreakpoint(Addr),

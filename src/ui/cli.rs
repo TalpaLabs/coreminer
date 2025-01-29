@@ -71,7 +71,7 @@ impl DebuggerUI for CliUi {
             } else if starts_with_any(&self.buf_preparsed[0], &["d", "dis"]) {
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr = Addr::from(addr_raw);
-                return Ok(Status::DisassembleAt(addr));
+                return Ok(Status::DisassembleAt(addr, 240));
             } else if starts_with_any(&self.buf_preparsed[0], &["break", "bp"]) {
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);

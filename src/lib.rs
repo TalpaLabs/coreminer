@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::io::{Read, Seek};
 use std::ops::{Add, Sub};
 
 use nix::sys::ptrace;
@@ -90,10 +91,21 @@ impl From<Addr> for u64 {
     }
 }
 
-pub(crate) fn wmem(pid: Pid, addr: Addr, value: Word) -> Result<()> {
+pub(crate) fn mem_write_word(pid: Pid, addr: Addr, value: Word) -> Result<()> {
     Ok(ptrace::write(pid, addr.into(), value)?)
 }
 
-pub(crate) fn rmem(pid: Pid, addr: Addr) -> Result<Word> {
+pub(crate) fn mem_read_word(pid: Pid, addr: Addr) -> Result<Word> {
     Ok(ptrace::read(pid, addr.into())?)
+}
+
+pub(crate) fn mem_read(data_raw: &mut [u8], pid: Pid, addr: Addr) -> Result<usize> {
+    let mut file = std::fs::File::options()
+        .read(true)
+        .write(false)
+        .open(format!("/proc/{pid}/mem"))?;
+    file.seek(std::io::SeekFrom::Start(addr.into()))?;
+    let len = file.read(data_raw)?;
+
+    Ok(len)
 }

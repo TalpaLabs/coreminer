@@ -26,7 +26,7 @@ fn main() -> Result<(), DebuggerError> {
     let ui = CliUi::build()?;
     let mut debug: Debugger<CliUi> = Debugger::build(&args.run, ui)?;
     let obj_data_raw = std::fs::read(&args.run)?;
-    let obj_data = object::File::parse(&*obj_data_raw)?;
+    let obj_data = debug.parse_exec_data(&obj_data_raw)?;
     debug.launch_debuggee(&debuggee_args, obj_data)?;
     debug.run_debugger()?;
     debug.cleanup()?;

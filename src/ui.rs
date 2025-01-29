@@ -7,7 +7,7 @@ use crate::{Addr, Word};
 pub mod cli;
 
 pub enum Status {
-    /// if None, then disassemble at rip register
+    GetSymbolsByName(String),
     DisassembleAt(Addr, usize),
     DebuggerQuit,
     Continue,

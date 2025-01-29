@@ -1,16 +1,18 @@
 use std::collections::HashMap;
 use std::ffi::CString;
+use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
 use nix::sys::ptrace;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::{execv, Pid};
+use object::{Object, ObjectSymbol};
 use proc_maps::MapRange;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::breakpoint::Breakpoint;
-use crate::dbginfo::CMDebugInfo;
+use crate::dbginfo::{CMDebugInfo, OwnedSymbol};
 use crate::disassemble::Disassembly;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
@@ -49,6 +51,41 @@ impl Debuggee<'_> {
         mem_read(&mut data_raw, self.pid, addr)?;
         let out: Disassembly = Disassembly::disassemble(&data_raw, addr)?;
         Ok(out)
+    }
+
+    pub fn dbg_get_all_base_syms(&self) {
+        let the_main: Vec<_> = self.dbginfo.object_info.symbols().collect();
+        debug!("main dbg symbol: {the_main:#?}");
+    }
+
+    pub fn get_symbols(&self) -> Result<Vec<OwnedSymbol>> {
+        if !self.dbginfo.object_info.has_debug_symbols() {
+            panic!("no dbg syms"); // TODO: make error
+        }
+
+        let mut symbols = Vec::new();
+
+        let symbols_weird: Vec<_> = self.dbginfo.object_info.symbols().collect();
+        for s in symbols_weird {
+            symbols.push(OwnedSymbol::try_from(s)?);
+        }
+
+        let symbols_weird: Vec<_> = self.dbginfo.object_info.dynamic_symbols().collect();
+        for s in symbols_weird {
+            symbols.push(OwnedSymbol::try_from(s)?);
+        }
+
+        Ok(symbols)
+    }
+
+    pub fn get_symbol_by_name(&self, name: impl Display) -> Result<Vec<OwnedSymbol>> {
+        let symbols = self
+            .get_symbols()?
+            .into_iter()
+            .filter(|s| s.name == name.to_string().as_str())
+            .collect();
+
+        Ok(symbols)
     }
 }
 
@@ -121,9 +158,19 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         )?)
     }
 
+    pub fn parse_exec_data(
+        &mut self,
+        data: &'executable [u8],
+    ) -> Result<object::File<'executable>> {
+        use object::File;
+        let file = File::parse(data)?;
+        Ok(file)
+    }
+
     pub fn run_debugger(&mut self) -> Result<()> {
         self.err_if_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
+        trace!("all syms: {:#?}", dbge.get_symbols()?);
         self.wait(&[])?; // wait until the debuggee is stopped
 
         info!("PID: {}", dbge.pid);
@@ -148,6 +195,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         Status::WriteMem(a, v) => self.write_mem(a, v),
                         Status::ReadMem(a) => self.read_mem(a),
                         Status::DisassembleAt(a, l) => self.disassemble_at(a, l),
+                        Status::GetSymbolsByName(s) => self.get_symbol_by_name(s),
                     },
                 }
             }
@@ -371,5 +419,13 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         let t = dbge.disassemble(addr, len)?;
 
         Ok(Feedback::Disassembly(t))
+    }
+
+    pub fn get_symbol_by_name(&self, name: impl Display) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+
+        let symbols = dbge.get_symbol_by_name(name)?;
+        Ok(Feedback::Symbols(symbols))
     }
 }

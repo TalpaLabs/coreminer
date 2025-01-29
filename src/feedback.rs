@@ -2,18 +2,21 @@ use std::fmt::Display;
 
 use nix::libc::user_regs_struct;
 
+use crate::dbginfo::OwnedSymbol;
 use crate::disassemble::Disassembly;
 use crate::errors::DebuggerError;
-use crate::Word;
+use crate::{Addr, Word};
 
 #[derive(Debug)]
 pub enum Feedback {
     Text(String),
     Word(Word),
+    Addr(Addr),
     Registers(user_regs_struct),
     Error(DebuggerError),
     Ok,
     Disassembly(Disassembly),
+    Symbols(Vec<OwnedSymbol>),
 }
 
 impl Display for Feedback {
@@ -23,15 +26,17 @@ impl Display for Feedback {
             Feedback::Error(e) => write!(f, "Error: {e}")?,
             Feedback::Registers(regs) => write!(f, "Registers: {regs:#x?}")?,
             Feedback::Word(w) => write!(f, "Word: {w:#018x?}")?,
+            Feedback::Addr(w) => write!(f, "Address: {w}")?,
             Feedback::Text(t) => write!(f, "{t}")?,
             Feedback::Disassembly(t) => write!(f, "{t:#?}")?,
+            Feedback::Symbols(t) => write!(f, "Symbols: {t:#?}")?,
         }
 
         Ok(())
     }
 }
 
-impl From<Result<Feedback, DebuggerError>> for Feedback {
+impl<'a> From<Result<Feedback, DebuggerError>> for Feedback {
     fn from(value: Result<Feedback, DebuggerError>) -> Self {
         match value {
             Ok(f) => f,

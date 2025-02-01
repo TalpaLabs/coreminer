@@ -4,7 +4,6 @@ use std::ops::{Add, Sub};
 
 use nix::sys::ptrace;
 use nix::unistd::Pid;
-use tracing::trace;
 
 use crate::errors::Result;
 
@@ -19,18 +18,15 @@ pub mod ui;
 pub type Word = i64;
 pub type RawPointer = *mut std::ffi::c_void;
 
-#[derive(Hash, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Hash, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Addr(pub RawPointer);
 
 impl Addr {
     pub fn from_relative(base: Addr, raw: usize) -> Addr {
-        trace!("base: {base:x?}");
         Self::from(base.usize() + raw)
     }
 
     pub fn relative(&self, base: Addr) -> Addr {
-        trace!("self: {self:x?}");
-        trace!("base: {base:x?}");
         *self - base
     }
 

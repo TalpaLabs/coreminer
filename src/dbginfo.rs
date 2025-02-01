@@ -1,7 +1,9 @@
 use std::rc::Rc;
 
-use gimli::{EndianRcSlice, EndianReader, NativeEndian};
-use object::{Object, ObjectSection};
+use gimli::{
+    DW_TAG_compile_unit, DW_TAG_subprogram, DwTag, EndianRcSlice, EndianReader, NativeEndian,
+};
+use object::{Object, ObjectSection, SymbolKind as _müll};
 
 use crate::errors::{DebuggerError, Result};
 use crate::Addr;
@@ -15,12 +17,13 @@ pub struct CMDebugInfo<'executable> {
     pub dwarf: gimli::Dwarf<EndianReader<NativeEndian, Rc<[u8]>>>,
 }
 
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum SymbolKind {
     Function,
+    CompileUnit,
 }
 
-#[derive(Debug, Hash, Clone)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub struct OwnedSymbol {
     pub name: String,
     pub low_addr: Addr,
@@ -36,6 +39,22 @@ impl OwnedSymbol {
             high_addr,
             kind,
         }
+    }
+
+    pub fn kind(&self) -> SymbolKind {
+        self.kind
+    }
+
+    pub fn high_addr(&self) -> Addr {
+        self.high_addr
+    }
+
+    pub fn low_addr(&self) -> Addr {
+        self.low_addr
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
     }
 }
 
@@ -61,6 +80,17 @@ impl<'executable> CMDebugInfo<'executable> {
             object_info,
             linedata,
             dwarf,
+        })
+    }
+}
+
+impl TryFrom<gimli::DwTag> for SymbolKind {
+    type Error = DebuggerError;
+    fn try_from(value: gimli::DwTag) -> std::result::Result<Self, Self::Error> {
+        Ok(match value {
+            DW_TAG_compile_unit => SymbolKind::CompileUnit,
+            DW_TAG_subprogram => SymbolKind::Function,
+            _ => return Err(DebuggerError::DwTagNotImplemented(value)),
         })
     }
 }

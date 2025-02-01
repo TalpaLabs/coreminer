@@ -8,7 +8,6 @@ use nix::sys::ptrace;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::{execv, Pid};
-use object::Object;
 use proc_maps::MapRange;
 use tracing::{debug, error, info, trace, warn};
 
@@ -55,76 +54,83 @@ impl Debuggee<'_> {
     }
 
     pub fn get_symbols(&self) -> Result<Vec<OwnedSymbol>> {
-        todo!()
-    }
-
-    pub fn get_symbol_by_name(&self, name: impl Display) -> Result<Vec<OwnedSymbol>> {
-        todo!()
-    }
-
-    pub fn get_function_by_addr(&self, addr: Addr) -> Result<Option<OwnedSymbol>> {
-        // Iterate over all compilation units.
         let dwarf = &self.dbginfo.dwarf;
+        let mut symbols = Vec::new();
         let mut iter = dwarf.units();
-        let mut fun: Option<OwnedSymbol> = None;
-        while let Some(header) = iter.next()? {
-            // Parse the abbreviations and other information for this compilation unit.
-            let unit = dwarf.unit(header)?;
 
-            // Iterate over all of this compilation unit's entries.
+        while let Some(header) = iter.next()? {
+            let unit = dwarf.unit(header)?;
             let mut entries = unit.entries();
             while let Some((_, entry)) = entries.next_dfs()? {
-                // If we find an entry for a function, print it.
-                if entry.tag() == gimli::DW_TAG_subprogram {
-                    let high = entry.attr(DW_AT_high_pc);
-                    let low = entry.attr(DW_AT_low_pc);
-                    let name = entry.attr(DW_AT_name);
-                    if !(entry.has_children()
-                        && high.clone().is_ok_and(|r| r.is_some())
-                        && low.clone().is_ok_and(|r| r.is_some())
-                        && name.clone().is_ok_and(|r| r.is_some()))
-                    {
-                        continue;
-                    }
+                #[allow(clippy::single_match)]
+                match entry.tag() {
+                    gimli::DW_TAG_subprogram | gimli::DW_TAG_compile_unit => {
+                        let high = entry.attr(DW_AT_high_pc);
+                        let low = entry.attr(DW_AT_low_pc);
+                        let name = entry.attr(DW_AT_name);
+                        if !(entry.has_children()
+                            && high.clone().is_ok_and(|r| r.is_some())
+                            && low.clone().is_ok_and(|r| r.is_some())
+                            && name.clone().is_ok_and(|r| r.is_some()))
+                        {
+                            continue;
+                        }
 
-                    let mut attrs = entry.attrs();
-                    while let Some(attr) = attrs.next()? {
-                        debug!("{:<16}\t{:?}", attr.name(), attr.value());
-                    }
+                        let la: u64 = dwarf
+                            .attr_address(&unit, low.unwrap().unwrap().value())?
+                            .unwrap();
+                        let ha: u64 = la + high.unwrap().unwrap().value().udata_value().unwrap();
+                        let name: String = dwarf
+                            .attr_string(&unit, name.unwrap().unwrap().value())?
+                            .to_string_lossy()?
+                            .to_string();
 
-                    let la: u64 = self
-                        .dbginfo
-                        .dwarf
-                        .attr_address(&unit, low.unwrap().unwrap().value())?
-                        .unwrap();
-                    let ha: u64 = la + high.unwrap().unwrap().value().udata_value().unwrap();
-                    let name: String = self
-                        .dbginfo
-                        .dwarf
-                        .attr_string(&unit, name.unwrap().unwrap().value())?
-                        .to_string_lossy()?
-                        .to_string();
+                        let base_addr = self.get_base_addr()?;
+                        let kind = match SymbolKind::try_from(entry.tag()) {
+                            Err(e) => {
+                                warn!("{e}");
+                                continue;
+                            }
+                            Ok(k) => k,
+                        };
 
-                    let base_addr = self.get_base_addr()?;
-                    let addr_rel: u64 = addr.relative(base_addr).into();
-
-                    trace!("high addr: {ha:x}");
-                    trace!("low addr: {la:x}");
-                    trace!("actual addr: {addr_rel:x}");
-
-                    if la <= addr_rel && ha >= addr_rel {
-                        fun = Some(OwnedSymbol::new(
+                        symbols.push(OwnedSymbol::new(
                             &name,
                             Addr::from_relative(base_addr, la as usize),
                             Addr::from_relative(base_addr, ha as usize),
-                            SymbolKind::Function,
+                            kind,
                         ))
                     }
+                    _ => (),
                 }
             }
         }
 
-        Ok(fun)
+        Ok(symbols)
+    }
+
+    pub fn get_symbol_by_name(&self, name: impl Display) -> Result<Vec<OwnedSymbol>> {
+        let all: Vec<OwnedSymbol> = self
+            .get_symbols()?
+            .into_iter()
+            .filter(|a| a.name() == name.to_string())
+            .collect();
+
+        Ok(all)
+    }
+
+    pub fn get_function_by_addr(&self, addr: Addr) -> Result<Option<OwnedSymbol>> {
+        for sym in self
+            .get_symbols()?
+            .into_iter()
+            .filter(|a| a.kind() == SymbolKind::Function)
+        {
+            if sym.low_addr <= addr && addr <= sym.high_addr {
+                return Ok(Some(sym));
+            }
+        }
+
+        Ok(None)
     }
 }
 

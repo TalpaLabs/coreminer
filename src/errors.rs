@@ -1,3 +1,4 @@
+use gimli::DwTag;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, DebuggerError>;
@@ -34,4 +35,6 @@ pub enum DebuggerError {
     GimliLoad,
     #[error("Could not format: {0}")]
     Format(#[from] std::fmt::Error),
+    #[error("DWARF Tag not implemented for this debugger: {0}")]
+    DwTagNotImplemented(DwTag),
 }

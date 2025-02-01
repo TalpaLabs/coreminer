@@ -1,9 +1,7 @@
 use std::rc::Rc;
 
-use gimli::{
-    DW_TAG_compile_unit, DW_TAG_subprogram, DwTag, EndianRcSlice, EndianReader, NativeEndian,
-};
-use object::{Object, ObjectSection, SymbolKind as _müll};
+use gimli::{DW_TAG_compile_unit, DW_TAG_subprogram, EndianRcSlice, EndianReader, NativeEndian};
+use object::{Object, ObjectSection};
 
 use crate::errors::{DebuggerError, Result};
 use crate::Addr;

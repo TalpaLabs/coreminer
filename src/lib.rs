@@ -4,6 +4,7 @@ use std::ops::{Add, Sub};
 
 use nix::sys::ptrace;
 use nix::unistd::Pid;
+use tracing::trace;
 
 use crate::errors::Result;
 
@@ -20,6 +21,29 @@ pub type RawPointer = *mut std::ffi::c_void;
 
 #[derive(Hash, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Addr(pub RawPointer);
+
+impl Addr {
+    pub fn from_relative(base: Addr, raw: usize) -> Addr {
+        trace!("base: {base:x?}");
+        Self::from(base.usize() + raw)
+    }
+
+    pub fn relative(&self, base: Addr) -> Addr {
+        trace!("self: {self:x?}");
+        trace!("base: {base:x?}");
+        *self - base
+    }
+
+    pub fn usize(&self) -> usize {
+        self.0 as usize
+    }
+    pub fn u64(&self) -> u64 {
+        self.0 as u64
+    }
+    pub fn raw_pointer(&self) -> RawPointer {
+        self.0
+    }
+}
 
 impl Display for Addr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

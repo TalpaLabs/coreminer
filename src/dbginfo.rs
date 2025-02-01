@@ -1,8 +1,7 @@
 use std::rc::Rc;
 
-use addr2line::fallible_iterator::FallibleIterator;
-use gimli::{EndianRcSlice, NativeEndian};
-use object::{Object, ObjectSection, ObjectSymbol};
+use gimli::{EndianRcSlice, EndianReader, NativeEndian};
+use object::{Object, ObjectSection};
 
 use crate::errors::{DebuggerError, Result};
 use crate::Addr;
@@ -13,12 +12,31 @@ type GimliRd = EndianRcSlice<NativeEndian>;
 pub struct CMDebugInfo<'executable> {
     pub object_info: object::File<'executable>,
     pub linedata: addr2line::Context<GimliRd>,
+    pub dwarf: gimli::Dwarf<EndianReader<NativeEndian, Rc<[u8]>>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, Hash)]
+pub enum SymbolKind {
+    Function,
+}
+
+#[derive(Debug, Hash, Clone)]
 pub struct OwnedSymbol {
     pub name: String,
-    pub addr: Addr,
+    pub low_addr: Addr,
+    pub high_addr: Addr,
+    pub kind: SymbolKind,
+}
+
+impl OwnedSymbol {
+    pub fn new(name: impl ToString, low_addr: Addr, high_addr: Addr, kind: SymbolKind) -> Self {
+        Self {
+            name: name.to_string(),
+            low_addr,
+            high_addr,
+            kind,
+        }
+    }
 }
 
 impl<'executable> CMDebugInfo<'executable> {
@@ -35,24 +53,14 @@ impl<'executable> CMDebugInfo<'executable> {
             ))
         };
         let dwarf = gimli::Dwarf::load(loader).unwrap();
-        // TODO: somehow get the variables from gimli
+        let dwarf2 = gimli::Dwarf::load(loader).unwrap();
 
-        let linedata = addr2line::Context::from_dwarf(dwarf)?;
+        let linedata = addr2line::Context::from_dwarf(dwarf2)?;
 
         Ok(CMDebugInfo {
             object_info,
             linedata,
+            dwarf,
         })
     }
-}
-
-impl TryFrom<object::Symbol<'_, '_>> for OwnedSymbol {
-    fn try_from(value: object::Symbol<'_, '_>) -> std::result::Result<Self, Self::Error> {
-        Ok(OwnedSymbol {
-            name: value.name()?.to_string(),
-            addr: value.address().into(),
-        })
-    }
-
-    type Error = DebuggerError;
 }

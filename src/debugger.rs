@@ -3,16 +3,17 @@ use std::ffi::CString;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
+use gimli::{DW_AT_high_pc, DW_AT_low_pc, DW_AT_name, Reader};
 use nix::sys::ptrace;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::{execv, Pid};
-use object::{Object, ObjectSymbol};
+use object::Object;
 use proc_maps::MapRange;
 use tracing::{debug, error, info, trace, warn};
 
 use crate::breakpoint::Breakpoint;
-use crate::dbginfo::{CMDebugInfo, OwnedSymbol};
+use crate::dbginfo::{CMDebugInfo, OwnedSymbol, SymbolKind};
 use crate::disassemble::Disassembly;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
@@ -53,39 +54,77 @@ impl Debuggee<'_> {
         Ok(out)
     }
 
-    pub fn dbg_get_all_base_syms(&self) {
-        let the_main: Vec<_> = self.dbginfo.object_info.symbols().collect();
-        debug!("main dbg symbol: {the_main:#?}");
-    }
-
     pub fn get_symbols(&self) -> Result<Vec<OwnedSymbol>> {
-        if !self.dbginfo.object_info.has_debug_symbols() {
-            panic!("no dbg syms"); // TODO: make error
-        }
-
-        let mut symbols = Vec::new();
-
-        let symbols_weird: Vec<_> = self.dbginfo.object_info.symbols().collect();
-        for s in symbols_weird {
-            symbols.push(OwnedSymbol::try_from(s)?);
-        }
-
-        let symbols_weird: Vec<_> = self.dbginfo.object_info.dynamic_symbols().collect();
-        for s in symbols_weird {
-            symbols.push(OwnedSymbol::try_from(s)?);
-        }
-
-        Ok(symbols)
+        todo!()
     }
 
     pub fn get_symbol_by_name(&self, name: impl Display) -> Result<Vec<OwnedSymbol>> {
-        let symbols = self
-            .get_symbols()?
-            .into_iter()
-            .filter(|s| s.name == name.to_string().as_str())
-            .collect();
+        todo!()
+    }
 
-        Ok(symbols)
+    pub fn get_function_by_addr(&self, addr: Addr) -> Result<Option<OwnedSymbol>> {
+        // Iterate over all compilation units.
+        let dwarf = &self.dbginfo.dwarf;
+        let mut iter = dwarf.units();
+        let mut fun: Option<OwnedSymbol> = None;
+        while let Some(header) = iter.next()? {
+            // Parse the abbreviations and other information for this compilation unit.
+            let unit = dwarf.unit(header)?;
+
+            // Iterate over all of this compilation unit's entries.
+            let mut entries = unit.entries();
+            while let Some((_, entry)) = entries.next_dfs()? {
+                // If we find an entry for a function, print it.
+                if entry.tag() == gimli::DW_TAG_subprogram {
+                    let high = entry.attr(DW_AT_high_pc);
+                    let low = entry.attr(DW_AT_low_pc);
+                    let name = entry.attr(DW_AT_name);
+                    if !(entry.has_children()
+                        && high.clone().is_ok_and(|r| r.is_some())
+                        && low.clone().is_ok_and(|r| r.is_some())
+                        && name.clone().is_ok_and(|r| r.is_some()))
+                    {
+                        continue;
+                    }
+
+                    let mut attrs = entry.attrs();
+                    while let Some(attr) = attrs.next()? {
+                        debug!("{:<16}\t{:?}", attr.name(), attr.value());
+                    }
+
+                    let la: u64 = self
+                        .dbginfo
+                        .dwarf
+                        .attr_address(&unit, low.unwrap().unwrap().value())?
+                        .unwrap();
+                    let ha: u64 = la + high.unwrap().unwrap().value().udata_value().unwrap();
+                    let name: String = self
+                        .dbginfo
+                        .dwarf
+                        .attr_string(&unit, name.unwrap().unwrap().value())?
+                        .to_string_lossy()?
+                        .to_string();
+
+                    let base_addr = self.get_base_addr()?;
+                    let addr_rel: u64 = addr.relative(base_addr).into();
+
+                    trace!("high addr: {ha:x}");
+                    trace!("low addr: {la:x}");
+                    trace!("actual addr: {addr_rel:x}");
+
+                    if la <= addr_rel && ha >= addr_rel {
+                        fun = Some(OwnedSymbol::new(
+                            &name,
+                            Addr::from_relative(base_addr, la as usize),
+                            Addr::from_relative(base_addr, ha as usize),
+                            SymbolKind::Function,
+                        ))
+                    }
+                }
+            }
+        }
+
+        Ok(fun)
     }
 }
 
@@ -168,10 +207,12 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn run_debugger(&mut self) -> Result<()> {
+        self.wait(&[])?; // wait until the debuggee is stopped
+
         self.err_if_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
-        trace!("all syms: {:#?}", dbge.get_symbols()?);
-        self.wait(&[])?; // wait until the debuggee is stopped
+        let fun = dbge.get_function_by_addr(Addr::from_relative(dbge.get_base_addr()?, 0x1140))?;
+        debug!("function at 0x1140: {fun:#?}");
 
         info!("PID: {}", dbge.pid);
         info!("base addr: {}", dbge.get_base_addr()?);

@@ -180,10 +180,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                 nix::unistd::ForkResult::Child => {
                     info!("starting the debuggee process");
                     let cpath = CString::new(path.to_string_lossy().to_string().as_str())?;
-                    eprintln!("DOING THE TRACEME");
                     ptrace::traceme()
                         .inspect_err(|e| eprintln!("error while doing traceme: {e}"))?;
-                    eprintln!("DOING THE EXECV");
                     execv(&cpath, args)?; // NOTE: unsure if args[0] is set to the executable
                     unreachable!()
                 }

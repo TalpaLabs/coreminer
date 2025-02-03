@@ -13,6 +13,7 @@ pub struct CliUi {
     buf: String,
     buf_preparsed: Vec<String>,
     history: BasicHistory,
+    stepper: usize,
 }
 
 impl CliUi {
@@ -21,6 +22,7 @@ impl CliUi {
             buf_preparsed: Vec::new(),
             buf: String::new(),
             history: BasicHistory::new(),
+            stepper: 0,
         };
         Ok(ui)
     }
@@ -63,6 +65,11 @@ impl DebuggerUI for CliUi {
             info!("{feedback}");
         }
 
+        if self.stepper > 0 {
+            self.stepper -= 1;
+            return Ok(Status::SingleStep);
+        }
+
         loop {
             self.get_input()?;
 
@@ -81,8 +88,18 @@ impl DebuggerUI for CliUi {
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);
                 return Ok(Status::SetBreakpoint(addr));
-            } else if starts_with_any(&self.buf_preparsed[0], &["s", "step"]) {
-                return Ok(Status::SingleStep);
+            } else if starts_with_any(&self.buf_preparsed[0], &["set"]) {
+                if self.buf_preparsed.len() < 3 {
+                    error!("sym CMD ARG");
+                    continue;
+                }
+                if self.buf_preparsed[1] == "stepper" {
+                    let steps: usize = get_number(&self.buf_preparsed[2])? as usize;
+                    self.stepper = steps;
+                } else {
+                    error!("unknown subcommand")
+                }
+                continue;
             } else if starts_with_any(&self.buf_preparsed[0], &["sym", "gsym"]) {
                 if self.buf_preparsed.len() < 2 {
                     error!("sym SYMBOL");
@@ -90,6 +107,8 @@ impl DebuggerUI for CliUi {
                 }
                 let symbol_name: String = self.buf_preparsed[1].to_string();
                 return Ok(Status::GetSymbolsByName(symbol_name));
+            } else if starts_with_any(&self.buf_preparsed[0], &["s", "step"]) {
+                return Ok(Status::SingleStep);
             } else if starts_with_any(&self.buf_preparsed[0], &["delbreak", "dbp"]) {
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);

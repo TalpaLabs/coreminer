@@ -44,6 +44,7 @@ impl Disassembly {
         // numbers stuff
         formatter.options_mut().set_hex_suffix("");
         formatter.options_mut().set_hex_prefix("");
+        formatter.options_mut().set_uppercase_hex(false);
         formatter.options_mut().set_decimal_suffix("");
         formatter.options_mut().set_decimal_prefix("0d");
         formatter.options_mut().set_octal_suffix("");

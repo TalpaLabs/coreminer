@@ -195,10 +195,12 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         let dbge = self.debuggee.as_ref().unwrap();
         let _status = self.wait(&[])?;
         let siginfo = ptrace::getsiginfo(dbge.pid)?;
-
         let sig = Signal::try_from(siginfo.si_signo)?;
         match sig {
             Signal::SIGTRAP => self.handle_sigtrap(sig, siginfo)?,
+            Signal::SIGSEGV | Signal::SIGINT | Signal::SIGPIPE => {
+                self.handle_important_signal(sig, siginfo)?
+            }
             _ => self.handle_other_signal(sig, siginfo)?,
         }
 
@@ -269,7 +271,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
     pub fn cont(&mut self, sig: Option<Signal>) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
-        self.step_over_bp()?;
+        self.go_back_step_over_bp()?;
         ptrace::cont(self.debuggee.as_ref().unwrap().pid, sig)?;
 
         self.wait(&[])?; // wait until the debuggee is stopped again!!!
@@ -421,21 +423,66 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Ok)
     }
 
-    pub fn single_step(&self) -> Result<Feedback> {
+    fn atomic_single_step(&self) -> Result<()> {
         self.err_if_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
 
         // FIXME: this is probably noticeable
-        ptrace::step(dbge.pid, None)?;
+        if let Err(e) = ptrace::step(dbge.pid, None) {
+            error!("could not do atomic step: {e}");
+            return Err(e.into());
+        }
+
+        Ok(())
+    }
+
+    pub fn single_step(&mut self) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        self.go_back_step_over_bp()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+
+        let maybe_bp_addr: Addr = (self.get_reg(Register::rip)?).into();
+        if dbge.breakpoints.contains_key(&maybe_bp_addr) {
+            trace!("step over instruction with breakpoint");
+            self.dse(maybe_bp_addr)?;
+        } else {
+            trace!("step regular instruction");
+            self.atomic_single_step()?;
+            self.wait_signal()?;
+        }
+        trace!("now at {:018x}", self.get_reg(Register::rip)?);
 
         Ok(Feedback::Ok)
     }
 
-    pub fn step_over_bp(&mut self) -> Result<()> {
+    fn dse(&mut self, here: Addr) -> Result<()> {
+        self.debuggee
+            .as_mut()
+            .unwrap()
+            .breakpoints
+            .get_mut(&here)
+            .unwrap()
+            .disable()?;
+
+        self.atomic_single_step()?;
+        self.wait_signal()
+            .inspect_err(|e| warn!("weird wait_signal error: {e}"))?;
+        self.debuggee
+            .as_mut()
+            .unwrap()
+            .breakpoints
+            .get_mut(&here)
+            .unwrap()
+            .enable()?;
+
+        Ok(())
+    }
+
+    pub fn go_back_step_over_bp(&mut self) -> Result<()> {
         // This function is hell with the borrow checker.
         // You can only have a single mutable refence OR n immutable references
         // Thus, you cannot simply `let bp = ...` at the start and later use things like
-        // `self.single_step`
+        // `self.atomic_single_step`
         self.err_if_no_debuggee()?;
         let maybe_bp_addr: Addr = (self.get_reg(Register::rip)? - 1).into();
 
@@ -447,8 +494,9 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             .get_mut(&maybe_bp_addr)
             .is_some_and(|a| a.is_enabled())
         {
-            let here_is_the_bp = maybe_bp_addr;
-            self.set_reg(Register::rip, here_is_the_bp.into())?;
+            let here = maybe_bp_addr;
+            self.set_reg(Register::rip, here.into())?;
+            trace!("stepping over breakpoint");
             self.debuggee
                 .as_mut()
                 .unwrap()
@@ -457,10 +505,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                 .unwrap()
                 .disable()?;
 
-            match self.single_step()? {
-                Feedback::Ok => (),
-                _ => panic!("single step returned a feedback other than Ok"),
-            }
+            self.atomic_single_step()?;
             self.wait_signal()?;
             self.debuggee
                 .as_mut()
@@ -469,6 +514,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                 .get_mut(&maybe_bp_addr)
                 .unwrap()
                 .enable()?;
+        } else {
+            trace!("breakpoint is disabled or does not exist, doing nothing");
         }
 
         Ok(())
@@ -506,6 +553,15 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             TRAP_TRACE => trace!("TRAP_TRACE"), // single stepping
             _ => warn!("Strange SIGTRAP code: {}", siginfo.si_code),
         }
+        Ok(())
+    }
+
+    pub fn handle_important_signal(
+        &self,
+        sig: Signal,
+        siginfo: nix::libc::siginfo_t,
+    ) -> Result<()> {
+        info!("debugee received {}: {}", sig.as_str(), siginfo.si_code);
         Ok(())
     }
 

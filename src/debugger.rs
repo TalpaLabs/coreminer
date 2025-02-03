@@ -9,9 +9,10 @@ use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::{execv, Pid};
 use proc_maps::MapRange;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::breakpoint::Breakpoint;
+use crate::consts::{SI_KERNEL, TRAP_BRKPT, TRAP_TRACE};
 use crate::dbginfo::{CMDebugInfo, OwnedSymbol, SymbolKind};
 use crate::disassemble::Disassembly;
 use crate::errors::{DebuggerError, Result};
@@ -187,6 +188,21 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                 }
             },
         }
+    }
+
+    pub fn wait_signal(&self) -> Result<nix::libc::siginfo_t> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+        let _status = self.wait(&[])?;
+        let siginfo = ptrace::getsiginfo(dbge.pid)?;
+
+        let sig = Signal::try_from(siginfo.si_signo)?;
+        match sig {
+            Signal::SIGTRAP => self.handle_sigtrap(sig, siginfo)?,
+            _ => self.handle_other_signal(sig, siginfo)?,
+        }
+
+        Ok(siginfo)
     }
 
     pub fn wait(&self, options: &[WaitPidFlag]) -> Result<WaitStatus> {
@@ -444,7 +460,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                 Feedback::Ok => (),
                 _ => panic!("single step returned a feedback other than Ok"),
             }
-            self.wait(&[])?; // wait for it to stop again
+            self.wait_signal()?;
             self.debuggee
                 .as_mut()
                 .unwrap()
@@ -472,5 +488,28 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
         let symbols = dbge.get_symbol_by_name(name)?;
         Ok(Feedback::Symbols(symbols))
+    }
+
+    pub fn handle_sigtrap(
+        &self,
+        sig: nix::sys::signal::Signal,
+        siginfo: nix::libc::siginfo_t,
+    ) -> Result<()> {
+        info!("debugee received {}: {}", sig.as_str(), siginfo.si_code);
+
+        match siginfo.si_code {
+            SI_KERNEL => trace!("SI_KERNEL"), // we don't know what do do?
+            TRAP_BRKPT => {
+                trace!("TRAP_BRKPT")
+            }
+            TRAP_TRACE => trace!("TRAP_TRACE"), // single stepping
+            _ => warn!("Strange SIGTRAP code: {}", siginfo.si_code),
+        }
+        Ok(())
+    }
+
+    pub fn handle_other_signal(&self, sig: Signal, siginfo: nix::libc::siginfo_t) -> Result<()> {
+        info!("debugee received {}: {}", sig.as_str(), siginfo.si_code);
+        Ok(())
     }
 }

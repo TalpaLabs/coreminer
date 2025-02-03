@@ -257,6 +257,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         Status::ReadMem(a) => self.read_mem(a),
                         Status::DisassembleAt(a, l) => self.disassemble_at(a, l),
                         Status::GetSymbolsByName(s) => self.get_symbol_by_name(s),
+                        Status::SingleStep => self.single_step(),
                     },
                 }
             }

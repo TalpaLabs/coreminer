@@ -8,6 +8,7 @@ use nix::unistd::Pid;
 use crate::errors::Result;
 
 pub mod breakpoint;
+pub mod consts;
 pub mod dbginfo;
 pub mod debugger;
 pub mod disassemble;

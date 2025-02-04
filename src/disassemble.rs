@@ -1,3 +1,5 @@
+use std::fmt::{Display, Write};
+
 use crate::errors::Result;
 use crate::Addr;
 
@@ -102,5 +104,24 @@ impl Disassembly {
 impl FormatterOutput for DisassemblyOutput {
     fn write(&mut self, text: &str, kind: FormatterTextKind) {
         self.0.push((text.to_string(), kind));
+    }
+}
+
+impl Display for Disassembly {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut buf2 = String::new();
+        for (addr, raw, content) in self.inner() {
+            write!(f, "{addr}\t")?;
+            for byte in raw {
+                write!(buf2, "{byte:02x} ")?;
+            }
+            write!(f, "{:<20}\t", buf2)?;
+            buf2.clear();
+            for (thing, _kind) in content {
+                write!(f, "{thing}")?;
+            }
+            writeln!(f)?;
+        }
+        Ok(())
     }
 }

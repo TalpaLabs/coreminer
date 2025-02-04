@@ -52,21 +52,7 @@ impl DebuggerUI for CliUi {
         } else if let Feedback::Text(t) = feedback {
             info!("\n{t}");
         } else if let Feedback::Disassembly(d) = feedback {
-            let mut buf = String::new();
-            let mut buf2 = String::new();
-            for (addr, raw, content) in d.inner() {
-                write!(buf, "{addr}\t")?;
-                for byte in raw {
-                    write!(buf2, "{byte:02x} ")?;
-                }
-                write!(buf, "{:<20}\t", buf2)?;
-                buf2.clear();
-                for (thing, _kind) in content {
-                    write!(buf, "{thing}")?;
-                }
-                writeln!(buf)?;
-            }
-            info!("\n{buf}");
+            info!("\n{d}");
         } else {
             info!("{feedback}");
         }

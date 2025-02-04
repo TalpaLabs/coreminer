@@ -7,7 +7,8 @@ use crate::{Addr, Word};
 pub mod cli;
 
 pub enum Status {
-    SingleStep,
+    StepOut,
+    StepSingle,
     GetSymbolsByName(String),
     DisassembleAt(Addr, usize),
     DebuggerQuit,

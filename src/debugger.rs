@@ -259,7 +259,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         Status::ReadMem(a) => self.read_mem(a),
                         Status::DisassembleAt(a, l) => self.disassemble_at(a, l),
                         Status::GetSymbolsByName(s) => self.get_symbol_by_name(s),
-                        Status::SingleStep => self.single_step(),
+                        Status::StepSingle => self.single_step(),
+                        Status::StepOut => self.step_out(),
                     },
                 }
             }
@@ -274,7 +275,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         self.go_back_step_over_bp()?;
         ptrace::cont(self.debuggee.as_ref().unwrap().pid, sig)?;
 
-        self.wait(&[])?; // wait until the debuggee is stopped again!!!
+        self.wait_signal()?; // wait until the debuggee is stopped again!!!
         Ok(Feedback::Ok)
     }
 
@@ -316,7 +317,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     pub fn del_bp(&mut self, addr: Addr) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
         let dbge = self.debuggee.as_mut().unwrap();
-        debug!("{:#x?}", dbge.breakpoints);
 
         if let Some(_bp) = dbge.breakpoints.get_mut(&addr) {
             dbge.breakpoints.remove(&addr); // gets disabled on dropping
@@ -452,6 +452,36 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         }
         trace!("now at {:018x}", self.get_reg(Register::rip)?);
 
+        Ok(Feedback::Ok)
+    }
+
+    pub fn step_out(&mut self) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+
+        let stack_frame_pointer: Addr = self.get_reg(Register::rbp)?.into();
+        let return_addr: Addr =
+            mem_read_word(self.debuggee.as_ref().unwrap().pid, stack_frame_pointer + 8)?.into();
+        trace!("rsb: {stack_frame_pointer}");
+        trace!("ret_addr: {return_addr}");
+
+        let should_remove_breakpoint = if !self
+            .debuggee
+            .as_ref()
+            .unwrap()
+            .breakpoints
+            .contains_key(&return_addr)
+        {
+            self.set_bp(return_addr)?;
+            true
+        } else {
+            false
+        };
+
+        self.cont(None)?;
+
+        if should_remove_breakpoint {
+            self.del_bp(return_addr)?;
+        }
         Ok(Feedback::Ok)
     }
 

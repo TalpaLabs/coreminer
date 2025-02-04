@@ -1,4 +1,3 @@
-use std::fmt::Write;
 use std::str::FromStr;
 
 use dialoguer::BasicHistory;

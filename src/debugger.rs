@@ -193,15 +193,26 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     pub fn wait_signal(&self) -> Result<nix::libc::siginfo_t> {
         self.err_if_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
-        let _status = self.wait(&[])?;
-        let siginfo = ptrace::getsiginfo(dbge.pid)?;
-        let sig = Signal::try_from(siginfo.si_signo)?;
-        match sig {
-            Signal::SIGTRAP => self.handle_sigtrap(sig, siginfo)?,
-            Signal::SIGSEGV | Signal::SIGINT | Signal::SIGPIPE => {
-                self.handle_important_signal(sig, siginfo)?
+
+        let mut _status;
+        let mut siginfo;
+        let mut sig;
+
+        loop {
+            _status = self.wait(&[])?;
+            siginfo = ptrace::getsiginfo(dbge.pid)?;
+            sig = Signal::try_from(siginfo.si_signo)?;
+            match sig {
+                Signal::SIGTRAP => {
+                    self.handle_sigtrap(sig, siginfo)?;
+                    break;
+                }
+                Signal::SIGSEGV | Signal::SIGINT | Signal::SIGPIPE => {
+                    self.handle_important_signal(sig, siginfo)?;
+                    break;
+                }
+                _ => continue,
             }
-            _ => self.handle_other_signal(sig, siginfo)?,
         }
 
         Ok(siginfo)

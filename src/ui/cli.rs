@@ -53,8 +53,14 @@ impl DebuggerUI for CliUi {
             info!("\n{t}");
         } else if let Feedback::Disassembly(d) = feedback {
             let mut buf = String::new();
-            for (addr, content) in d.inner() {
+            let mut buf2 = String::new();
+            for (addr, raw, content) in d.inner() {
                 write!(buf, "{addr}\t")?;
+                for byte in raw {
+                    write!(buf2, "{byte:02x} ")?;
+                }
+                write!(buf, "{:<20}\t", buf2)?;
+                buf2.clear();
                 for (thing, _kind) in content {
                     write!(buf, "{thing}")?;
                 }

@@ -526,6 +526,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         // `self.atomic_single_step`
         self.err_if_no_debuggee()?;
         let maybe_bp_addr: Addr = (self.get_reg(Register::rip)? - 1).into();
+        trace!("Checkinf if {maybe_bp_addr} had a breakpoint");
 
         if self
             .debuggee
@@ -536,8 +537,9 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             .is_some_and(|a| a.is_enabled())
         {
             let here = maybe_bp_addr;
+            trace!("set register to {here}");
             self.set_reg(Register::rip, here.into())?;
-            trace!("stepping over breakpoint");
+            trace!("disabling the breakpoint");
             self.debuggee
                 .as_mut()
                 .unwrap()
@@ -547,7 +549,9 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                 .disable()?;
 
             self.atomic_single_step()?;
+            trace!("waiting for completion of single step");
             self.wait_signal()?;
+            trace!("enabling the breakpoint");
             self.debuggee
                 .as_mut()
                 .unwrap()
@@ -558,6 +562,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         } else {
             trace!("breakpoint is disabled or does not exist, doing nothing");
         }
+
+        trace!("done stepping over breakpoint");
 
         Ok(())
     }

@@ -1,6 +1,8 @@
 //! Thanks to the BugStalker debugger, which has written down these constants in a convenient
 //! way. They are deeply nested into the libc, and not available from nix or the rust bindings of
 //! the libc
+//!
+//! Source: <https://elixir.bootlin.com/linux/v6.13.1/source/include/uapi/asm-generic/siginfo.h#L227>
 
 #![allow(unused)]
 

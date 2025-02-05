@@ -207,11 +207,18 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                     self.handle_sigtrap(sig, siginfo)?;
                     break;
                 }
-                Signal::SIGSEGV | Signal::SIGINT | Signal::SIGPIPE => {
+                Signal::SIGSEGV
+                | Signal::SIGINT
+                | Signal::SIGPIPE
+                | Signal::SIGSTOP
+                | Signal::SIGILL => {
                     self.handle_important_signal(sig, siginfo)?;
                     break;
                 }
-                _ => continue,
+                _ => {
+                    trace!("ignoring signal {sig}");
+                    continue;
+                }
             }
         }
 

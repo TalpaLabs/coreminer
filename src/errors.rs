@@ -37,4 +37,6 @@ pub enum DebuggerError {
     Format(#[from] std::fmt::Error),
     #[error("DWARF Tag not implemented for this debugger: {0}")]
     DwTagNotImplemented(DwTag),
+    #[error("Tried stepping out of main function, this makes no sense")]
+    StepOutMain,
 }

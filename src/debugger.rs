@@ -121,13 +121,16 @@ impl Debuggee<'_> {
     }
 
     pub fn get_function_by_addr(&self, addr: Addr) -> Result<Option<OwnedSymbol>> {
+        debug!("get function for addr {addr}");
         for sym in self
             .get_symbols()?
             .into_iter()
             .filter(|a| a.kind() == SymbolKind::Function)
         {
-            if sym.low_addr <= addr && addr <= sym.high_addr {
+            if sym.low_addr <= addr && addr < sym.high_addr {
                 return Ok(Some(sym));
+            } else {
+                trace!("it's not {:#?}", sym);
             }
         }
 
@@ -477,6 +480,22 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     // TODO: SIGSEGV immer mal wieder random lol
     pub fn step_out(&mut self) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
+        {
+            let a = self
+                .debuggee
+                .as_ref()
+                .unwrap()
+                .get_function_by_addr(self.get_reg(Register::rip)?.into())?;
+            if let Some(s) = a {
+                debug!("step out in following function: {s:#?}");
+                if s.name() == "main" {
+                    error!("you're about to do something stupid: no stepping out of the earliest stack frame allowed");
+                    return Err(DebuggerError::StepOutMain);
+                }
+            } else {
+                panic!("did not find the main dbg sym");
+            }
+        }
 
         let stack_frame_pointer: Addr = self.get_reg(Register::rbp)?.into();
         let return_addr: Addr =

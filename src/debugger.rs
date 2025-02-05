@@ -281,6 +281,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(())
     }
 
+    // FIXME: sometimes randomly waits forever
     pub fn cont(&mut self, sig: Option<Signal>) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
         self.go_back_step_over_bp()?;
@@ -466,6 +467,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Ok)
     }
 
+    // TODO: SIGSEGV immer mal wieder random lol
     pub fn step_out(&mut self) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
 
@@ -497,6 +499,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     fn dse(&mut self, here: Addr) -> Result<()> {
+        trace!("disabling the breakpoint");
         self.debuggee
             .as_mut()
             .unwrap()
@@ -505,9 +508,12 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             .unwrap()
             .disable()?;
 
+        trace!("atomic step");
         self.atomic_single_step()?;
+        trace!("waiting");
         self.wait_signal()
             .inspect_err(|e| warn!("weird wait_signal error: {e}"))?;
+        trace!("enable stepped over bp again");
         self.debuggee
             .as_mut()
             .unwrap()
@@ -515,6 +521,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             .get_mut(&here)
             .unwrap()
             .enable()?;
+        trace!("dse done");
 
         Ok(())
     }
@@ -539,26 +546,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             let here = maybe_bp_addr;
             trace!("set register to {here}");
             self.set_reg(Register::rip, here.into())?;
-            trace!("disabling the breakpoint");
-            self.debuggee
-                .as_mut()
-                .unwrap()
-                .breakpoints
-                .get_mut(&maybe_bp_addr)
-                .unwrap()
-                .disable()?;
 
-            self.atomic_single_step()?;
-            trace!("waiting for completion of single step");
-            self.wait_signal()?;
-            trace!("enabling the breakpoint");
-            self.debuggee
-                .as_mut()
-                .unwrap()
-                .breakpoints
-                .get_mut(&maybe_bp_addr)
-                .unwrap()
-                .enable()?;
+            self.dse(here)?;
         } else {
             trace!("breakpoint is disabled or does not exist, doing nothing");
         }

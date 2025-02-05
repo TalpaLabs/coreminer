@@ -270,6 +270,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         return Err(e);
                     }
                     Ok(s) => match s {
+                        Status::Infos => self.infos(),
                         Status::DebuggerQuit => break,
                         Status::Continue => self.cont(None),
                         Status::SetBreakpoint(addr) => self.set_bp(addr),
@@ -291,7 +292,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(())
     }
 
-    // FIXME: sometimes randomly waits forever
     pub fn cont(&mut self, sig: Option<Signal>) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
         self.go_back_step_over_bp()?;
@@ -477,7 +477,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Ok)
     }
 
-    // TODO: SIGSEGV immer mal wieder random lol
     pub fn step_out(&mut self) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
         {
@@ -520,6 +519,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
         if should_remove_breakpoint {
             self.del_bp(return_addr)?;
+            self.set_reg(Register::rip, self.get_reg(Register::rip)? - 1)?; // we need to go back
+                                                                            // else we skip an instruction
         }
         Ok(Feedback::Ok)
     }
@@ -630,5 +631,12 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     pub fn handle_other_signal(&self, sig: Signal, siginfo: nix::libc::siginfo_t) -> Result<()> {
         info!("debugee received {}: {}", sig.as_str(), siginfo.si_code);
         Ok(())
+    }
+
+    fn infos(&self) -> std::result::Result<Feedback, DebuggerError> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+        info!("Breakpoints:\n{:#?}", dbge.breakpoints);
+        Ok(Feedback::Ok)
     }
 }

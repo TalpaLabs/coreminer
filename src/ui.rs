@@ -19,6 +19,7 @@ pub enum Status {
     SetRegister(Register, u64),
     WriteMem(Addr, Word),
     ReadMem(Addr),
+    Infos,
 }
 
 pub trait DebuggerUI {

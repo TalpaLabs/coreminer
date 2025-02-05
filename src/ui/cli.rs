@@ -102,6 +102,8 @@ impl DebuggerUI for CliUi {
                 return Ok(Status::StepOut);
             } else if starts_with_any(&self.buf_preparsed[0], &["s", "step"]) {
                 return Ok(Status::StepSingle);
+            } else if starts_with_any(&self.buf_preparsed[0], &["info"]) {
+                return Ok(Status::Infos);
             } else if starts_with_any(&self.buf_preparsed[0], &["delbreak", "dbp"]) {
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);

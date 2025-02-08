@@ -102,6 +102,8 @@ impl DebuggerUI for CliUi {
                 }
                 let symbol_name: String = self.buf_preparsed[1].to_string();
                 return Ok(Status::GetSymbolsByName(symbol_name));
+            } else if string_matches(&self.buf_preparsed[0], &["bt"]) {
+                return Ok(Status::Backtrace);
             } else if string_matches(&self.buf_preparsed[0], &["so"]) {
                 return Ok(Status::StepOut);
             } else if string_matches(&self.buf_preparsed[0], &["su", "sov"]) {

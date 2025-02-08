@@ -39,4 +39,6 @@ pub enum DebuggerError {
     DwTagNotImplemented(DwTag),
     #[error("Tried stepping out of main function, this makes no sense")]
     StepOutMain,
+    #[error("Unwind Error: {0}")]
+    Unwind(#[from] unwind::Error),
 }

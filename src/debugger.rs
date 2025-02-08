@@ -19,7 +19,7 @@ use crate::disassemble::Disassembly;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Register, Status};
-use crate::{mem_read, mem_read_word, mem_write_word, Addr, Word};
+use crate::{mem_read, mem_read_word, mem_write_word, unwind, Addr, Word};
 
 pub struct Debugger<'executable, UI: DebuggerUI> {
     executable_path: PathBuf,
@@ -286,6 +286,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         Status::StepOut => self.step_out(),
                         Status::StepInto => self.step_into(),
                         Status::StepOver => self.step_over(),
+                        Status::Backtrace => self.backtrace(),
                     },
                 }
             }
@@ -704,5 +705,14 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
         self.step_into()?;
         self.step_out()
+    }
+
+    pub fn backtrace(&self) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+
+        let backtrace = unwind::unwind(dbge.pid)?;
+
+        Ok(Feedback::Backtrace(backtrace))
     }
 }

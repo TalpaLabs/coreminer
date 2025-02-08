@@ -7,6 +7,7 @@ use crate::{Addr, Word};
 pub mod cli;
 
 pub enum Status {
+    Backtrace,
     StepOver,
     StepInto,
     StepOut,

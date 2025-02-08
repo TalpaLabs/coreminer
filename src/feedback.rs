@@ -5,6 +5,7 @@ use nix::libc::user_regs_struct;
 use crate::dbginfo::OwnedSymbol;
 use crate::disassemble::Disassembly;
 use crate::errors::DebuggerError;
+use crate::unwind::Backtrace;
 use crate::{Addr, Word};
 
 #[derive(Debug)]
@@ -16,6 +17,7 @@ pub enum Feedback {
     Error(DebuggerError),
     Ok,
     Disassembly(Disassembly),
+    Backtrace(Backtrace),
     Symbols(Vec<OwnedSymbol>),
 }
 
@@ -30,6 +32,7 @@ impl Display for Feedback {
             Feedback::Text(t) => write!(f, "{t}")?,
             Feedback::Disassembly(t) => write!(f, "{t:#?}")?,
             Feedback::Symbols(t) => write!(f, "Symbols: {t:#?}")?,
+            Feedback::Backtrace(t) => write!(f, "Backtrace: {t:#?}")?,
         }
 
         Ok(())

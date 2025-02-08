@@ -15,6 +15,7 @@ pub mod disassemble;
 pub mod errors;
 pub mod feedback;
 pub mod ui;
+pub mod unwind;
 
 pub type Word = i64;
 pub type RawPointer = *mut std::ffi::c_void;

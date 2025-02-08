@@ -464,7 +464,9 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
     pub fn single_step(&mut self) -> Result<Feedback> {
         self.err_if_no_debuggee()?;
-        self.go_back_step_over_bp()?;
+        if self.go_back_step_over_bp()? {
+            info!("breakpoint before, caught up and continueing with single step")
+        }
         let dbge = self.debuggee.as_ref().unwrap();
 
         let maybe_bp_addr: Addr = (self.get_reg(Register::rip)?).into();
@@ -557,7 +559,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(())
     }
 
-    pub fn go_back_step_over_bp(&mut self) -> Result<()> {
+    pub fn go_back_step_over_bp(&mut self) -> Result<bool> {
         // This function is hell with the borrow checker.
         // You can only have a single mutable refence OR n immutable references
         // Thus, you cannot simply `let bp = ...` at the start and later use things like
@@ -579,13 +581,11 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             self.set_reg(Register::rip, here.into())?;
 
             self.dse(here)?;
+            Ok(true)
         } else {
             trace!("breakpoint is disabled or does not exist, doing nothing");
+            Ok(false)
         }
-
-        trace!("done stepping over breakpoint");
-
-        Ok(())
     }
 
     pub fn disassemble_at(&self, addr: Addr, len: usize) -> Result<Feedback> {

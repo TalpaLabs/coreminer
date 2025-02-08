@@ -4,6 +4,7 @@ use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
 use gimli::{DW_AT_high_pc, DW_AT_low_pc, DW_AT_name, Reader};
+use iced_x86::FormatterTextKind;
 use nix::sys::ptrace;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
@@ -283,6 +284,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         Status::GetSymbolsByName(s) => self.get_symbol_by_name(s),
                         Status::StepSingle => self.single_step(),
                         Status::StepOut => self.step_out(),
+                        Status::StepInto => self.step_into(),
                     },
                 }
             }
@@ -492,7 +494,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                     return Err(DebuggerError::StepOutMain);
                 }
             } else {
-                panic!("did not find the main dbg sym");
+                warn!("did not find debug symbol for current address");
             }
         }
 
@@ -637,6 +639,61 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         self.err_if_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
         info!("Breakpoints:\n{:#?}", dbge.breakpoints);
+        Ok(Feedback::Ok)
+    }
+
+    pub fn step_into(&mut self) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        self.go_back_step_over_bp()?;
+
+        loop {
+            let rip: Addr = (self.get_reg(Register::rip)?).into();
+            let disassembly: Disassembly = self.debuggee.as_ref().unwrap().disassemble(rip, 8)?;
+            let next_instruction = &disassembly.inner()[0];
+            let operator = next_instruction.2[0].clone();
+
+            if operator.1 != FormatterTextKind::Mnemonic {
+                error!("could not read operator from disassembly");
+            }
+            if operator.0.trim() == "call" {
+                self.single_step()?;
+
+                let rip: Addr = (self.get_reg(Register::rip)?).into();
+                let disassembly: Disassembly =
+                    self.debuggee.as_ref().unwrap().disassemble(rip, 8)?;
+
+                let mut normal_prolog = true;
+                // NOTE: the magic numbers are the machine code for the normal prologue
+                // 55                      push            rbp
+                // 48 89 e5                mov             rbp,rsp
+                // 48 83 ec 10             sub             rsp,10 ; 10 is flexible (stack size)
+                if disassembly.inner().len() != 3 {
+                    normal_prolog = false;
+                }
+                if normal_prolog && disassembly.inner()[0].1 != [0x55] {
+                    normal_prolog = false;
+                }
+                if normal_prolog && disassembly.inner()[1].1 != [0x48, 0x89, 0xe5] {
+                    normal_prolog = false;
+                }
+                if normal_prolog && disassembly.inner()[2].1.starts_with(&[0x48, 0x89, 0xec]) {
+                    normal_prolog = false;
+                }
+
+                if normal_prolog {
+                    self.single_step()?;
+                    self.single_step()?;
+                    self.single_step()?;
+                } else {
+                    warn!("weird prolog, not stepping to the end of the prolog:\n{disassembly}")
+                }
+
+                break;
+            } else {
+                self.single_step()?;
+            }
+        }
+
         Ok(Feedback::Ok)
     }
 }

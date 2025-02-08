@@ -64,9 +64,13 @@ impl DebuggerUI for CliUi {
         loop {
             self.get_input()?;
 
-            if starts_with_any(&self.buf_preparsed[0], &["cont", "c"]) {
+            if string_matches(&self.buf_preparsed[0], &["cont", "c"]) {
                 return Ok(Status::Continue);
-            } else if starts_with_any(&self.buf_preparsed[0], &["d", "dis"]) {
+            } else if string_matches(&self.buf_preparsed[0], &["delbreak", "dbp"]) {
+                let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
+                let addr: Addr = Addr::from(addr_raw);
+                return Ok(Status::DelBreakpoint(addr));
+            } else if string_matches(&self.buf_preparsed[0], &["d", "dis"]) {
                 if self.buf_preparsed.len() < 3 {
                     error!("d ADDR LEN");
                     continue;
@@ -75,11 +79,11 @@ impl DebuggerUI for CliUi {
                 let addr = Addr::from(addr_raw);
                 let len: usize = get_number(&self.buf_preparsed[2])? as usize;
                 return Ok(Status::DisassembleAt(addr, len));
-            } else if starts_with_any(&self.buf_preparsed[0], &["break", "bp"]) {
+            } else if string_matches(&self.buf_preparsed[0], &["break", "bp"]) {
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);
                 return Ok(Status::SetBreakpoint(addr));
-            } else if starts_with_any(&self.buf_preparsed[0], &["set"]) {
+            } else if string_matches(&self.buf_preparsed[0], &["set"]) {
                 if self.buf_preparsed.len() < 3 {
                     error!("sym CMD ARG");
                     continue;
@@ -91,24 +95,22 @@ impl DebuggerUI for CliUi {
                     error!("unknown subcommand")
                 }
                 continue;
-            } else if starts_with_any(&self.buf_preparsed[0], &["sym", "gsym"]) {
+            } else if string_matches(&self.buf_preparsed[0], &["sym", "gsym"]) {
                 if self.buf_preparsed.len() < 2 {
                     error!("sym SYMBOL");
                     continue;
                 }
                 let symbol_name: String = self.buf_preparsed[1].to_string();
                 return Ok(Status::GetSymbolsByName(symbol_name));
-            } else if starts_with_any(&self.buf_preparsed[0], &["so"]) {
+            } else if string_matches(&self.buf_preparsed[0], &["so"]) {
                 return Ok(Status::StepOut);
-            } else if starts_with_any(&self.buf_preparsed[0], &["s", "step"]) {
+            } else if string_matches(&self.buf_preparsed[0], &["si"]) {
+                return Ok(Status::StepInto);
+            } else if string_matches(&self.buf_preparsed[0], &["s", "step"]) {
                 return Ok(Status::StepSingle);
-            } else if starts_with_any(&self.buf_preparsed[0], &["info"]) {
+            } else if string_matches(&self.buf_preparsed[0], &["info"]) {
                 return Ok(Status::Infos);
-            } else if starts_with_any(&self.buf_preparsed[0], &["delbreak", "dbp"]) {
-                let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
-                let addr: Addr = Addr::from(addr_raw);
-                return Ok(Status::DelBreakpoint(addr));
-            } else if starts_with_any(&self.buf_preparsed[0], &["rmem"]) {
+            } else if string_matches(&self.buf_preparsed[0], &["rmem"]) {
                 if self.buf_preparsed.len() < 2 {
                     error!("rmem ADDR");
                     continue;
@@ -116,7 +118,7 @@ impl DebuggerUI for CliUi {
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);
                 return Ok(Status::ReadMem(addr));
-            } else if starts_with_any(&self.buf_preparsed[0], &["wmem"]) {
+            } else if string_matches(&self.buf_preparsed[0], &["wmem"]) {
                 if self.buf_preparsed.len() < 3 {
                     error!("wmem ADDR VAL");
                     continue;
@@ -125,7 +127,7 @@ impl DebuggerUI for CliUi {
                 let addr: Addr = Addr::from(addr_raw);
                 let value: i64 = get_number(&self.buf_preparsed[1])? as i64;
                 return Ok(Status::WriteMem(addr, value));
-            } else if starts_with_any(&self.buf_preparsed[0], &["regs"]) {
+            } else if string_matches(&self.buf_preparsed[0], &["regs"]) {
                 if self.buf_preparsed.len() < 2 {
                     error!("need to give a subcommand");
                     continue;
@@ -150,8 +152,8 @@ impl DebuggerUI for CliUi {
     }
 }
 
-fn starts_with_any(cmd: &str, prefixes: &[&str]) -> bool {
-    prefixes.iter().any(|a| cmd.starts_with(a))
+fn string_matches(cmd: &str, prefixes: &[&str]) -> bool {
+    prefixes.iter().any(|a| cmd == *a)
 }
 
 fn get_number(mut raw: &str) -> Result<u64> {

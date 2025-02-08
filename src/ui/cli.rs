@@ -104,6 +104,8 @@ impl DebuggerUI for CliUi {
                 return Ok(Status::GetSymbolsByName(symbol_name));
             } else if string_matches(&self.buf_preparsed[0], &["so"]) {
                 return Ok(Status::StepOut);
+            } else if string_matches(&self.buf_preparsed[0], &["su", "sov"]) {
+                return Ok(Status::StepOver);
             } else if string_matches(&self.buf_preparsed[0], &["si"]) {
                 return Ok(Status::StepInto);
             } else if string_matches(&self.buf_preparsed[0], &["s", "step"]) {

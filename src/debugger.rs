@@ -285,6 +285,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         Status::StepSingle => self.single_step(),
                         Status::StepOut => self.step_out(),
                         Status::StepInto => self.step_into(),
+                        Status::StepOver => self.step_over(),
                     },
                 }
             }
@@ -690,10 +691,18 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
                 break;
             } else {
-                self.single_step()?;
+                self.single_step()?; // PERF: this is very inefficient :/ maybe remove the autostepper
             }
         }
 
         Ok(Feedback::Ok)
+    }
+
+    pub fn step_over(&mut self) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        self.go_back_step_over_bp()?;
+
+        self.step_into()?;
+        self.step_out()
     }
 }

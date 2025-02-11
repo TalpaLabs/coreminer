@@ -4,10 +4,10 @@ use std::os::unix::fs::OpenOptionsExt;
 use gimli::write::LocationListOffsets;
 use gimli::{Evaluation, Expression, Piece, Reader, Unit};
 use nix::unistd::Pid;
-use tracing::warn;
+use tracing::{trace, warn};
 
 use crate::dbginfo::GimliLocation;
-use crate::debugger::Debuggee;
+use crate::debugger::{Debuggee, Debugger};
 use crate::errors::{DebuggerError, Result};
 use crate::{mem_read, Addr};
 
@@ -92,11 +92,8 @@ impl Debuggee<'_> {
 
     pub(crate) fn parse_location(
         pid: Pid,
-        dwarf: &gimli::Dwarf<GimliReaderThing>,
         unit: &Unit<GimliReaderThing>,
         attribute: Option<gimli::Attribute<GimliReaderThing>>,
-        frame_base: Addr,
-        registers: nix::libc::user_regs_struct,
     ) -> Result<Option<GimliLocation>> {
         let attribute = match attribute {
             None => return Ok(None),
@@ -105,9 +102,9 @@ impl Debuggee<'_> {
 
         match attribute.value() {
             gimli::AttributeValue::Exprloc(expr) => Self::eval_expression(pid, unit, expr),
-            gimli::AttributeValue::LocationListsRef(loclist_offs) => {
-                Self::parse_loclist(loclist_offs)
-            }
+            // gimli::AttributeValue::LocationListsRef(loclist_offs) => {
+            //     Self::parse_loclist(loclist_offs)
+            // }
             _ => panic!("we did not know a location could be this"),
         }
     }
@@ -148,6 +145,9 @@ impl Debuggee<'_> {
                     let reg_value = crate::get_reg(pid, reg)?;
                     res = evaluation.resume_with_register(gimli::Value::from_u64(gimli::ValueType::Generic, reg_value)?)?;
                 }
+                gimli::EvaluationResult::RequiresFrameBase =>{
+                    res = evaluation.resume_with_frame_base(Debuggee::get_base_addr_by_pid(pid)?.into())?;
+                }
                 other => {
                     unimplemented!("Gimli expression parsing for {other:?} is not implemented")
                 }
@@ -159,7 +159,9 @@ impl Debuggee<'_> {
             warn!("really? we did all that parsing and got NOTHING");
             Ok(None)
         } else {
-            Ok(Some(pieces[0].location.clone()))
+            let loc = pieces[0].location.clone();
+            trace!("location for the expression: {loc:?}");
+            Ok(Some(loc))
         }
     }
 }

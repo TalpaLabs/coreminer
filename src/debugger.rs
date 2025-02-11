@@ -20,7 +20,7 @@ use crate::dwarf_parse::GimliReaderThing;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Status};
-use crate::variable::{filter_expressions, var_read, VariableExpression, VariableValue};
+use crate::variable::{filter_expressions, var_read, VariableExpression};
 use crate::{mem_read, mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 
 pub struct Debugger<'executable, UI: DebuggerUI> {
@@ -169,6 +169,8 @@ impl<'executable> Debuggee<'executable> {
                 let low = Self::parse_addr_low(dwarf, unit, entry.attr(DW_AT_low_pc)?, base_addr)?;
                 let high = Self::parse_addr_high(entry.attr(DW_AT_high_pc)?, low)?;
                 let datatype: Option<usize> = Self::parse_datatype(entry.attr(DW_AT_type)?)?;
+                let location: Option<GimliLocation> =
+                    Self::parse_location(pid, unit, entry.attr(DW_AT_location)?)?;
                 Ok(OwnedSymbol::new(
                     entry.offset().0,
                     name,
@@ -176,7 +178,7 @@ impl<'executable> Debuggee<'executable> {
                     high,
                     kind,
                     datatype,
-                    None,
+                    location,
                     &[],
                 ))
             }

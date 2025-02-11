@@ -1,8 +1,6 @@
-use std::str::FromStr;
-
-use crate::errors::{DebuggerError, Result};
+use crate::errors::Result;
 use crate::feedback::Feedback;
-use crate::{Addr, Word};
+use crate::{Addr, Register, Word};
 
 pub mod cli;
 

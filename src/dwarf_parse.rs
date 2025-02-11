@@ -1,12 +1,11 @@
 use core::panic;
-use std::os::unix::fs::OpenOptionsExt;
 
 use gimli::write::LocationListOffsets;
 use gimli::{Evaluation, Expression, Piece, Reader, Unit};
 use nix::unistd::Pid;
 use tracing::{trace, warn};
 
-use crate::dbginfo::GimliLocation;
+use crate::dbginfo::{GimliLocation, OwnedSymbol};
 use crate::debugger::{Debuggee, Debugger};
 use crate::errors::{DebuggerError, Result};
 use crate::{mem_read, Addr};
@@ -94,6 +93,7 @@ impl Debuggee<'_> {
         pid: Pid,
         unit: &Unit<GimliReaderThing>,
         attribute: Option<gimli::Attribute<GimliReaderThing>>,
+        last_function: &mut Option<OwnedSymbol>,
     ) -> Result<Option<GimliLocation>> {
         let attribute = match attribute {
             None => return Ok(None),
@@ -101,7 +101,9 @@ impl Debuggee<'_> {
         };
 
         match attribute.value() {
-            gimli::AttributeValue::Exprloc(expr) => Self::eval_expression(pid, unit, expr),
+            gimli::AttributeValue::Exprloc(expr) => {
+                Self::eval_expression(pid, unit, expr, last_function)
+            }
             // gimli::AttributeValue::LocationListsRef(loclist_offs) => {
             //     Self::parse_loclist(loclist_offs)
             // }
@@ -119,6 +121,7 @@ impl Debuggee<'_> {
         pid: Pid,
         unit: &Unit<GimliReaderThing>,
         expression: Expression<GimliReaderThing>,
+        last_function: &mut Option<OwnedSymbol>,
     ) -> Result<Option<GimliLocation>> {
         let mut evaluation = expression.evaluation(unit.encoding());
         let mut res = evaluation.evaluate()?;
@@ -146,7 +149,20 @@ impl Debuggee<'_> {
                     res = evaluation.resume_with_register(gimli::Value::from_u64(gimli::ValueType::Generic, reg_value)?)?;
                 }
                 gimli::EvaluationResult::RequiresFrameBase =>{
-                    res = evaluation.resume_with_frame_base(Debuggee::get_base_addr_by_pid(pid)?.into())?;
+                    let last_fun = match last_function {
+                        None => panic!("there was no last_function, so no frame base is known"),
+                        Some(f) => f.frame_base.clone()
+                    };
+                    let frame_base_location = match last_fun {
+                        None => panic!("last_function has no frame base: {last_fun:?}"),
+                        Some(frame_loc) => frame_loc
+                    };
+
+                    let frame_base: Addr = crate::gimli_location_to_addr(pid, &frame_base_location)?;
+
+                    res = evaluation.resume_with_frame_base(
+                        frame_base.u64()
+                    )?;
                 }
                 other => {
                     unimplemented!("Gimli expression parsing for {other:?} is not implemented")

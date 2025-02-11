@@ -37,6 +37,7 @@ pub struct OwnedSymbol {
     pub low_addr: Option<Addr>,
     pub high_addr: Option<Addr>,
     pub datatype: Option<usize>,
+    pub frame_base: Option<GimliLocation>,
     pub kind: SymbolKind,
     pub location: Option<GimliLocation>,
     pub children: Vec<Self>,
@@ -51,6 +52,7 @@ impl OwnedSymbol {
         kind: SymbolKind,
         datatype: Option<usize>,
         location: Option<GimliLocation>,
+        frame_base: Option<GimliLocation>,
         children: &[Self],
     ) -> Self {
         Self {
@@ -61,6 +63,7 @@ impl OwnedSymbol {
             kind,
             datatype,
             location,
+            frame_base,
             children: children.to_vec(),
         }
     }

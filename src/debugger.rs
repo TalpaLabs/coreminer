@@ -3,7 +3,9 @@ use std::ffi::CString;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
-use gimli::{DW_AT_high_pc, DW_AT_location, DW_AT_low_pc, DW_AT_name, DW_AT_type, Unit};
+use gimli::{
+    DW_AT_frame_base, DW_AT_high_pc, DW_AT_location, DW_AT_low_pc, DW_AT_name, DW_AT_type, Unit,
+};
 use iced_x86::FormatterTextKind;
 use nix::sys::ptrace;
 use nix::sys::signal::Signal;
@@ -20,7 +22,7 @@ use crate::dwarf_parse::GimliReaderThing;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Status};
-use crate::variable::{filter_expressions, var_read, VariableExpression};
+use crate::variable::VariableExpression;
 use crate::{mem_read, mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 
 pub struct Debugger<'executable, UI: DebuggerUI> {
@@ -47,10 +49,17 @@ impl<'executable> Debuggee<'executable> {
         let dwarf = &dbginfo.dwarf;
         let mut iter = dwarf.units();
 
+        let mut last_function: Option<OwnedSymbol> = None;
         while let Some(header) = iter.next()? {
             let unit = dwarf.unit(header)?;
             let mut tree = unit.entries_tree(None)?;
-            symbols.push(Self::process_tree(pid, dwarf, &unit, tree.root()?)?);
+            symbols.push(Self::process_tree(
+                pid,
+                dwarf,
+                &unit,
+                tree.root()?,
+                &mut last_function,
+            )?);
         }
 
         Ok(Self {
@@ -95,6 +104,7 @@ impl<'executable> Debuggee<'executable> {
         dwarf: &gimli::Dwarf<GimliReaderThing>,
         unit: &Unit<GimliReaderThing>,
         entry: &gimli::DebuggingInformationEntry<'_, '_, GimliReaderThing>,
+        last_function: &mut Option<OwnedSymbol>,
     ) -> Result<OwnedSymbol> {
         let base_addr = Self::get_base_addr_by_pid(pid)?;
 
@@ -105,7 +115,9 @@ impl<'executable> Debuggee<'executable> {
                 let high = Self::parse_addr_high(entry.attr(DW_AT_high_pc)?, low)?;
                 let name = Self::parse_string(dwarf, unit, entry.attr(DW_AT_name)?)?;
                 let kind = SymbolKind::try_from(entry.tag())?;
-                Ok(OwnedSymbol::new(
+                let frame_base: Option<GimliLocation> =
+                    Self::parse_location(pid, unit, entry.attr(DW_AT_frame_base)?, last_function)?;
+                let fun = OwnedSymbol::new(
                     entry.offset().0,
                     name,
                     low,
@@ -113,8 +125,11 @@ impl<'executable> Debuggee<'executable> {
                     kind,
                     None,
                     None,
+                    frame_base,
                     &[],
-                ))
+                );
+                *last_function = Some(fun.clone());
+                Ok(fun)
             }
             gimli::DW_TAG_compile_unit => {
                 let low = Self::parse_addr_low(dwarf, unit, entry.attr(DW_AT_low_pc)?, base_addr)?;
@@ -127,6 +142,7 @@ impl<'executable> Debuggee<'executable> {
                     low,
                     high,
                     kind,
+                    None,
                     None,
                     None,
                     &[],
@@ -143,6 +159,7 @@ impl<'executable> Debuggee<'executable> {
                     kind,
                     None,
                     None,
+                    None,
                     &[],
                 ))
             }
@@ -151,7 +168,7 @@ impl<'executable> Debuggee<'executable> {
                 let datatype: Option<usize> = Self::parse_datatype(entry.attr(DW_AT_type)?)?;
                 let kind = SymbolKind::try_from(entry.tag())?;
                 let location: Option<GimliLocation> =
-                    Self::parse_location(pid, unit, entry.attr(DW_AT_location)?)?;
+                    Self::parse_location(pid, unit, entry.attr(DW_AT_location)?, last_function)?;
                 Ok(OwnedSymbol::new(
                     entry.offset().0,
                     name,
@@ -160,6 +177,7 @@ impl<'executable> Debuggee<'executable> {
                     kind,
                     datatype,
                     location,
+                    None,
                     &[],
                 ))
             }
@@ -170,7 +188,9 @@ impl<'executable> Debuggee<'executable> {
                 let high = Self::parse_addr_high(entry.attr(DW_AT_high_pc)?, low)?;
                 let datatype: Option<usize> = Self::parse_datatype(entry.attr(DW_AT_type)?)?;
                 let location: Option<GimliLocation> =
-                    Self::parse_location(pid, unit, entry.attr(DW_AT_location)?)?;
+                    Self::parse_location(pid, unit, entry.attr(DW_AT_location)?, last_function)?;
+                let frame_base: Option<GimliLocation> =
+                    Self::parse_location(pid, unit, entry.attr(DW_AT_frame_base)?, last_function)?;
                 Ok(OwnedSymbol::new(
                     entry.offset().0,
                     name,
@@ -179,6 +199,7 @@ impl<'executable> Debuggee<'executable> {
                     kind,
                     datatype,
                     location,
+                    frame_base,
                     &[],
                 ))
             }
@@ -193,21 +214,24 @@ impl<'executable> Debuggee<'executable> {
         dwarf: &gimli::Dwarf<GimliReaderThing>,
         unit: &Unit<GimliReaderThing>,
         node: gimli::EntriesTreeNode<GimliReaderThing>,
+        last_function: &mut Option<OwnedSymbol>,
     ) -> Result<OwnedSymbol> {
         let mut children: Vec<OwnedSymbol> = Vec::new();
-        let mut parent = Self::entry_from_gimli(pid, dwarf, unit, node.entry())?;
+        let mut parent = Self::entry_from_gimli(pid, dwarf, unit, node.entry(), last_function)?;
 
         // then process it's children
         let mut children_tree = node.children();
         while let Some(child) = children_tree.next()? {
             // Recursively process a child.
-            children.push(match Self::process_tree(pid, dwarf, unit, child) {
-                Err(e) => {
-                    debug!("could not parse a leaf of the debug symbol tree: {e}");
-                    continue;
-                }
-                Ok(s) => s,
-            });
+            children.push(
+                match Self::process_tree(pid, dwarf, unit, child, last_function) {
+                    Err(e) => {
+                        debug!("could not parse a leaf of the debug symbol tree: {e}");
+                        continue;
+                    }
+                    Ok(s) => s,
+                },
+            );
         }
 
         parent.children = children;
@@ -800,12 +824,13 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
         let rip: Addr = self.get_current_addr()?;
         let locals = dbge.get_local_variables(rip)?;
-        let vars = filter_expressions(&locals, expression)?;
+        debug!("locals: {locals:?}");
+        let vars = dbge.filter_expressions(&locals, expression)?;
         if vars.len() > 1 {
             panic!("too many vars")
         }
 
-        let val = var_read(&vars[0])?;
+        let val = dbge.var_read(&vars[0])?;
 
         Ok(Feedback::Variable(val))
     }

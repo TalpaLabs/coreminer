@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use gimli::{EndianRcSlice, NativeEndian};
+use gimli::{EndianRcSlice, NativeEndian, Reader};
 use object::{Object, ObjectSection};
 
 use crate::dwarf_parse::GimliReaderThing;
@@ -9,6 +9,7 @@ use crate::Addr;
 
 // the gimli::Reader we use
 type GimliRd = EndianRcSlice<NativeEndian>;
+pub type GimliLocation = gimli::Location<GimliReaderThing, <GimliReaderThing as Reader>::Offset>;
 
 pub struct CMDebugInfo<'executable> {
     pub object_info: object::File<'executable>,
@@ -29,7 +30,7 @@ pub enum SymbolKind {
     Block,
 }
 
-#[derive(Debug, Hash, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct OwnedSymbol {
     pub offset: usize,
     pub name: Option<String>,
@@ -37,6 +38,7 @@ pub struct OwnedSymbol {
     pub high_addr: Option<Addr>,
     pub datatype: Option<usize>,
     pub kind: SymbolKind,
+    pub location: Option<GimliLocation>,
     pub children: Vec<Self>,
 }
 
@@ -48,6 +50,7 @@ impl OwnedSymbol {
         high_addr: Option<Addr>,
         kind: SymbolKind,
         datatype: Option<usize>,
+        location: Option<GimliLocation>,
         children: &[Self],
     ) -> Self {
         Self {
@@ -57,6 +60,7 @@ impl OwnedSymbol {
             high_addr,
             kind,
             datatype,
+            location,
             children: children.to_vec(),
         }
     }

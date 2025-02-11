@@ -6,6 +6,7 @@ use crate::dbginfo::OwnedSymbol;
 use crate::disassemble::Disassembly;
 use crate::errors::DebuggerError;
 use crate::unwind::Backtrace;
+use crate::variable::VariableValue;
 use crate::{Addr, Word};
 
 #[derive(Debug)]
@@ -19,6 +20,7 @@ pub enum Feedback {
     Disassembly(Disassembly),
     Backtrace(Backtrace),
     Symbols(Vec<OwnedSymbol>),
+    Variable(VariableValue),
 }
 
 impl Display for Feedback {
@@ -33,6 +35,7 @@ impl Display for Feedback {
             Feedback::Disassembly(t) => write!(f, "{t:#?}")?,
             Feedback::Symbols(t) => write!(f, "Symbols: {t:#?}")?,
             Feedback::Backtrace(t) => write!(f, "Backtrace: {t:#?}")?,
+            Feedback::Variable(t) => write!(f, "Variable: {t:#?}")?,
         }
 
         Ok(())

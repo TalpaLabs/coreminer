@@ -3,7 +3,7 @@ use std::ffi::CString;
 use std::fmt::Display;
 use std::path::{Path, PathBuf};
 
-use gimli::{DW_AT_high_pc, DW_AT_low_pc, DW_AT_name, DW_AT_type, Unit};
+use gimli::{DW_AT_high_pc, DW_AT_location, DW_AT_low_pc, DW_AT_name, DW_AT_type, Unit};
 use iced_x86::FormatterTextKind;
 use nix::sys::ptrace;
 use nix::sys::signal::Signal;
@@ -14,15 +14,14 @@ use tracing::{debug, error, info, trace, warn};
 
 use crate::breakpoint::Breakpoint;
 use crate::consts::{SI_KERNEL, TRAP_BRKPT, TRAP_TRACE};
-use crate::dbginfo::{CMDebugInfo, OwnedSymbol, SymbolKind};
+use crate::dbginfo::{CMDebugInfo, GimliLocation, OwnedSymbol, SymbolKind};
 use crate::disassemble::Disassembly;
 use crate::dwarf_parse::GimliReaderThing;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
-use crate::ui::{DebuggerUI, Register, Status};
-use crate::{mem_read, mem_read_word, mem_write_word, unwind, Addr, Word};
-
-pub type VariableExpression = String;
+use crate::ui::{DebuggerUI, Status};
+use crate::variable::{filter_expressions, var_read, VariableExpression, VariableValue};
+use crate::{mem_read, mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 
 pub struct Debugger<'executable, UI: DebuggerUI> {
     pub(crate) executable_path: PathBuf,
@@ -113,6 +112,7 @@ impl<'executable> Debuggee<'executable> {
                     high,
                     kind,
                     None,
+                    None,
                     &[],
                 ))
             }
@@ -128,6 +128,7 @@ impl<'executable> Debuggee<'executable> {
                     high,
                     kind,
                     None,
+                    None,
                     &[],
                 ))
             }
@@ -141,6 +142,7 @@ impl<'executable> Debuggee<'executable> {
                     None,
                     kind,
                     None,
+                    None,
                     &[],
                 ))
             }
@@ -148,6 +150,8 @@ impl<'executable> Debuggee<'executable> {
                 let name = Self::parse_string(dwarf, unit, entry.attr(DW_AT_name)?)?;
                 let datatype: Option<usize> = Self::parse_datatype(entry.attr(DW_AT_type)?)?;
                 let kind = SymbolKind::try_from(entry.tag())?;
+                let location: Option<GimliLocation> =
+                    Self::parse_location(pid, unit, entry.attr(DW_AT_location)?)?;
                 Ok(OwnedSymbol::new(
                     entry.offset().0,
                     name,
@@ -155,6 +159,7 @@ impl<'executable> Debuggee<'executable> {
                     None,
                     kind,
                     datatype,
+                    location,
                     &[],
                 ))
             }
@@ -171,6 +176,7 @@ impl<'executable> Debuggee<'executable> {
                     high,
                     kind,
                     datatype,
+                    None,
                     &[],
                 ))
             }
@@ -447,6 +453,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         Status::StepInto => self.step_into(),
                         Status::StepOver => self.step_over(),
                         Status::Backtrace => self.backtrace(),
+                        Status::ReadVariable(va) => self.read_variable(va),
                     },
                 }
             }
@@ -513,102 +520,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Ok)
     }
 
-    pub fn get_reg(&self, r: Register) -> Result<u64> {
-        self.err_if_no_debuggee()?;
-        let dbge = self.debuggee.as_ref().unwrap();
-        let regs = ptrace::getregs(dbge.pid)?;
-
-        let v = match r {
-            Register::r9 => regs.r9,
-            Register::r8 => regs.r8,
-            Register::r10 => regs.r10,
-            Register::r11 => regs.r11,
-            Register::r12 => regs.r12,
-            Register::r13 => regs.r13,
-            Register::r14 => regs.r14,
-            Register::r15 => regs.r15,
-            Register::rip => regs.rip,
-            Register::rbp => regs.rbp,
-            Register::rax => regs.rax,
-            Register::rcx => regs.rcx,
-            Register::rbx => regs.rbx,
-            Register::rdx => regs.rdx,
-            Register::rsi => regs.rsi,
-            Register::rsp => regs.rsp,
-            Register::rdi => regs.rdi,
-            Register::orig_rax => regs.orig_rax,
-            Register::eflags => regs.eflags,
-            Register::es => regs.es,
-            Register::cs => regs.cs,
-            Register::ss => regs.ss,
-            Register::fs_base => regs.fs_base,
-            Register::fs => regs.fs,
-            Register::gs_base => regs.gs_base,
-            Register::gs => regs.gs,
-            Register::ds => regs.ds,
-        };
-
-        Ok(v)
-    }
-
-    pub fn set_reg(&self, r: Register, v: u64) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
-        let dbge = self.debuggee.as_ref().unwrap();
-        let mut regs = ptrace::getregs(dbge.pid)?;
-
-        match r {
-            Register::r9 => regs.r9 = v,
-            Register::r8 => regs.r8 = v,
-            Register::r10 => regs.r10 = v,
-            Register::r11 => regs.r11 = v,
-            Register::r12 => regs.r12 = v,
-            Register::r13 => regs.r13 = v,
-            Register::r14 => regs.r14 = v,
-            Register::r15 => regs.r15 = v,
-            Register::rip => regs.rip = v,
-            Register::rbp => regs.rbp = v,
-            Register::rax => regs.rax = v,
-            Register::rcx => regs.rcx = v,
-            Register::rbx => regs.rbx = v,
-            Register::rdx => regs.rdx = v,
-            Register::rsi => regs.rsi = v,
-            Register::rsp => regs.rsp = v,
-            Register::rdi => regs.rdi = v,
-            Register::orig_rax => regs.orig_rax = v,
-            Register::eflags => regs.eflags = v,
-            Register::es => regs.es = v,
-            Register::cs => regs.cs = v,
-            Register::ss => regs.ss = v,
-            Register::fs_base => regs.fs_base = v,
-            Register::fs => regs.fs = v,
-            Register::gs_base => regs.gs_base = v,
-            Register::gs => regs.gs = v,
-            Register::ds => regs.ds = v,
-        }
-
-        ptrace::setregs(dbge.pid, regs)?;
-
-        Ok(Feedback::Ok)
-    }
-
-    pub fn read_mem(&self, addr: Addr) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
-        let dbge = self.debuggee.as_ref().unwrap();
-
-        let w = mem_read_word(dbge.pid, addr)?;
-
-        Ok(Feedback::Word(w))
-    }
-
-    pub fn write_mem(&self, addr: Addr, value: Word) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
-        let dbge = self.debuggee.as_ref().unwrap();
-
-        mem_write_word(dbge.pid, addr, value)?;
-
-        Ok(Feedback::Ok)
-    }
-
     fn atomic_single_step(&self) -> Result<()> {
         self.err_if_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
@@ -629,7 +540,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         }
         let dbge = self.debuggee.as_ref().unwrap();
 
-        let maybe_bp_addr: Addr = (self.get_reg(Register::rip)?).into();
+        let maybe_bp_addr: Addr = self.get_current_addr()?;
         if dbge.breakpoints.contains_key(&maybe_bp_addr) {
             trace!("step over instruction with breakpoint");
             self.dse(maybe_bp_addr)?;
@@ -725,7 +636,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         // Thus, you cannot simply `let bp = ...` at the start and later use things like
         // `self.atomic_single_step`
         self.err_if_no_debuggee()?;
-        let maybe_bp_addr: Addr = (self.get_reg(Register::rip)? - 1).into();
+        let maybe_bp_addr: Addr = self.get_current_addr()? - 1;
         trace!("Checkinf if {maybe_bp_addr} had a breakpoint");
 
         if self
@@ -820,7 +731,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             if operator.0.trim() == "call" {
                 self.single_step()?;
 
-                let rip: Addr = (self.get_reg(Register::rip)?).into();
+                let rip: Addr = self.get_current_addr()?;
                 let disassembly: Disassembly =
                     self.debuggee.as_ref().unwrap().disassemble(rip, 8)?;
 
@@ -874,5 +785,58 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         let backtrace = unwind::unwind(dbge.pid)?;
 
         Ok(Feedback::Backtrace(backtrace))
+    }
+
+    pub fn get_current_addr(&self) -> Result<Addr> {
+        self.err_if_no_debuggee()?;
+        Ok((self.get_reg(Register::rip)?).into())
+    }
+
+    pub fn read_variable(&self, expression: VariableExpression) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+
+        let rip: Addr = self.get_current_addr()?;
+        let locals = dbge.get_local_variables(rip)?;
+        let vars = filter_expressions(&locals, expression)?;
+        if vars.len() > 1 {
+            panic!("too many vars")
+        }
+
+        let val = var_read(&vars[0])?;
+
+        Ok(Feedback::Variable(val))
+    }
+
+    pub fn read_mem(&self, addr: Addr) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+
+        let w = mem_read_word(dbge.pid, addr)?;
+
+        Ok(Feedback::Word(w))
+    }
+
+    pub fn write_mem(&self, addr: Addr, value: Word) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+
+        mem_write_word(dbge.pid, addr, value)?;
+
+        Ok(Feedback::Ok)
+    }
+
+    pub fn get_reg(&self, r: Register) -> Result<u64> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+
+        crate::get_reg(dbge.pid, r)
+    }
+
+    pub fn set_reg(&self, r: Register, v: u64) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+        crate::set_reg(dbge.pid, r, v)?;
+        Ok(Feedback::Ok)
     }
 }

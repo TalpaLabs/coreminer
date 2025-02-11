@@ -102,6 +102,13 @@ impl DebuggerUI for CliUi {
                 }
                 let symbol_name: String = self.buf_preparsed[1].to_string();
                 return Ok(Status::GetSymbolsByName(symbol_name));
+            } else if string_matches(&self.buf_preparsed[0], &["var"]) {
+                if self.buf_preparsed.len() < 2 {
+                    error!("var SYMBOL");
+                    continue;
+                }
+                let symbol_name: String = self.buf_preparsed[1].to_string();
+                return Ok(Status::ReadVariable(symbol_name));
             } else if string_matches(&self.buf_preparsed[0], &["bt"]) {
                 return Ok(Status::Backtrace);
             } else if string_matches(&self.buf_preparsed[0], &["so"]) {

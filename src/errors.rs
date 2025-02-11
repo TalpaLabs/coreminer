@@ -43,4 +43,6 @@ pub enum DebuggerError {
     Unwind(#[from] unwind::Error),
     #[error("While calculating the higher address with DWARF debug symbols, the lower address was none but the higher (offset) was some")]
     HighAddrExistsButNotLowAddr,
+    #[error("Register with index {0} is not supported by this debugger")]
+    UnimplementedRegister(u16),
 }

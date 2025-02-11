@@ -104,9 +104,9 @@ impl Debuggee<'_> {
         };
 
         match attribute.value() {
-            gimli::AttributeValue::Exprloc(expr) => Self::eval_expression(expr)?,
+            gimli::AttributeValue::Exprloc(expr) => Self::eval_expression(pid, unit, expr),
             gimli::AttributeValue::LocationListsRef(loclist_offs) => {
-                Self::parse_loclist(loclist_offs)?
+                Self::parse_loclist(loclist_offs)
             }
             _ => panic!("we did not know a location could be this"),
         }
@@ -120,14 +120,14 @@ impl Debuggee<'_> {
 
     pub(crate) fn eval_expression(
         pid: Pid,
-        mut evaluation: Evaluation<GimliReaderThing>,
+        unit: &Unit<GimliReaderThing>,
+        expression: Expression<GimliReaderThing>,
     ) -> Result<Option<GimliLocation>> {
+        let mut evaluation = expression.evaluation(unit.encoding());
         let mut res = evaluation.evaluate()?;
-        let pieces;
         loop {
             match res {
                 gimli::EvaluationResult::Complete => {
-                    pieces = evaluation.result();
                     break;
                 }
                 gimli::EvaluationResult::RequiresMemory {
@@ -141,16 +141,26 @@ impl Debuggee<'_> {
                     let read_this_many_bytes = mem_read(&mut buff, pid, addr)?;
                     assert_eq!(size as usize, read_this_many_bytes);
                     let value = to_value(size, &buff);
-                    evaluation.resume_with_memory(value)?;
+                    res = evaluation.resume_with_memory(value)?;
                 }
                 gimli::EvaluationResult::RequiresRegister { register, .. /* ignore the actual type and give as word */ } => {
                     let reg= crate::Register::try_from(register)?;
                     let reg_value = crate::get_reg(pid, reg)?;
-                    evaluation.resume_with_register(gimli::Value::from_u64(gimli::ValueType::Generic, reg_value)?)?;
+                    res = evaluation.resume_with_register(gimli::Value::from_u64(gimli::ValueType::Generic, reg_value)?)?;
+                }
+                other => {
+                    unimplemented!("Gimli expression parsing for {other:?} is not implemented")
                 }
             }
         }
-        todo!()
+        let pieces = evaluation.result();
+
+        if pieces.is_empty() {
+            warn!("really? we did all that parsing and got NOTHING");
+            Ok(None)
+        } else {
+            Ok(Some(pieces[0].location.clone()))
+        }
     }
 }
 

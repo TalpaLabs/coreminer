@@ -6,20 +6,28 @@ use tracing::{trace, warn};
 use crate::dbginfo::GimliLocation;
 use crate::debuggee::Debuggee;
 use crate::errors::{DebuggerError, Result};
-use crate::{get_reg, mem_read, Addr};
+use crate::{mem_read, Addr};
 
 pub(crate) type GimliReaderThing = gimli::EndianReader<gimli::LittleEndian, std::rc::Rc<[u8]>>;
 
-pub struct FrameInfos {
-    pub frame_base: Option<Addr>,
-    pub canonical_frame_address: Option<Addr>,
+pub struct FrameInfo {
+    pub frame_base: Addr,
+    pub canonical_frame_address: Addr,
 }
-impl FrameInfos {
-    pub(crate) fn empty() -> FrameInfos {
-        FrameInfos {
-            frame_base: None,
-            canonical_frame_address: None,
+impl FrameInfo {
+    pub(crate) fn new(frame_base: Addr, canonical_frame_address: Addr) -> FrameInfo {
+        FrameInfo {
+            frame_base,
+            canonical_frame_address,
         }
+    }
+
+    pub fn canonical_frame_address(&self) -> Addr {
+        self.canonical_frame_address
+    }
+
+    pub fn frame_base(&self) -> Addr {
+        self.frame_base
     }
 }
 
@@ -113,12 +121,12 @@ impl Debuggee<'_> {
     pub(crate) fn parse_location(
         &self,
         attribute: &gimli::Attribute<GimliReaderThing>,
-        frame_infos: &mut FrameInfos,
+        frame_info: &FrameInfo,
         encoding: Encoding,
     ) -> Result<GimliLocation> {
         match attribute.value() {
             gimli::AttributeValue::Exprloc(expr) => {
-                self.eval_expression(expr, frame_infos, encoding)
+                self.eval_expression(expr, frame_info, encoding)
             }
             _ => panic!("we did not know a location could be this"),
         }
@@ -127,7 +135,7 @@ impl Debuggee<'_> {
     pub(crate) fn eval_expression(
         &self,
         expression: Expression<GimliReaderThing>,
-        frame_infos: &mut FrameInfos,
+        frame_info: &FrameInfo,
         encoding: Encoding,
     ) -> Result<GimliLocation> {
         let mut evaluation = expression.evaluation(encoding);
@@ -156,15 +164,15 @@ impl Debuggee<'_> {
                     res = evaluation.resume_with_register(gimli::Value::from_u64(gimli::ValueType::Generic, reg_value)?)?;
                 }
                 gimli::EvaluationResult::RequiresFrameBase =>{
-                    let frame_base: Addr = frame_infos.frame_base.expect("frame base was None");
+                    let frame_base: Addr = frame_info.frame_base;
 
                     res = evaluation.resume_with_frame_base(
                         frame_base.u64()
                     )?;
                 }
                 gimli::EvaluationResult::RequiresCallFrameCfa => {
-                    let cfa = get_reg(self.pid, crate::Register::rbp)?;
-                    res = evaluation.resume_with_call_frame_cfa(cfa)?;
+                    let cfa: Addr = frame_info.canonical_frame_address;
+                    res = evaluation.resume_with_call_frame_cfa(cfa.into())?;
                 }
                 other => {
                     unimplemented!("Gimli expression parsing for {other:?} is not implemented")

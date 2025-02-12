@@ -15,6 +15,7 @@ use crate::consts::{SI_KERNEL, TRAP_BRKPT, TRAP_TRACE};
 use crate::dbginfo::{CMDebugInfo, OwnedSymbol};
 use crate::debuggee::Debuggee;
 use crate::disassemble::Disassembly;
+use crate::dwarf_parse::FrameInfo;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Status};
@@ -528,7 +529,11 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             return Err(DebuggerError::VarExprReturnedNothing(expression));
         }
 
-        let val = dbge.var_read(&vars[0])?;
+        let frame_info = FrameInfo::new(
+            self.get_reg(crate::Register::rbp)?.into(),
+            self.get_reg(crate::Register::rbp)?.into(),
+        );
+        let val = dbge.var_read(&vars[0], &frame_info)?;
 
         Ok(Feedback::Variable(val))
     }

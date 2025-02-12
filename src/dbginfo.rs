@@ -225,6 +225,31 @@ impl Debug for OwnedSymbol {
     }
 }
 
+pub fn search_through_symbols<F>(haystack: &[OwnedSymbol], fil: F) -> Vec<OwnedSymbol>
+where
+    F: Fn(&OwnedSymbol) -> bool,
+{
+    let mut relevant = Vec::new();
+
+    fn finder<F>(buf: &mut Vec<OwnedSymbol>, s: &OwnedSymbol, fil: &F)
+    where
+        F: Fn(&OwnedSymbol) -> bool,
+    {
+        for c in s.children() {
+            finder(buf, c, fil);
+        }
+        if fil(s) {
+            buf.push(s.clone());
+        }
+    }
+
+    for s in haystack {
+        finder(&mut relevant, s, &fil);
+    }
+
+    relevant
+}
+
 fn dbg_large_option<T>(o: Option<T>) -> &'static str {
     match o {
         Some(_inner) => "Some(...)",

@@ -57,4 +57,6 @@ pub enum DebuggerError {
     AmbiguousVarExpr(String),
     #[error("Variable expression led to no variables being found: {0}")]
     VarExprReturnedNothing(String),
+    #[error("No datatype found for symbol which needed one")]
+    NoDatatypeFound,
 }

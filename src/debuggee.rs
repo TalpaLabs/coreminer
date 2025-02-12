@@ -11,7 +11,7 @@ use proc_maps::MapRange;
 use tracing::{debug, trace};
 
 use crate::breakpoint::Breakpoint;
-use crate::dbginfo::{CMDebugInfo, OwnedSymbol, SymbolKind};
+use crate::dbginfo::{search_through_symbols, CMDebugInfo, OwnedSymbol, SymbolKind};
 use crate::disassemble::Disassembly;
 use crate::dwarf_parse::GimliReaderThing;
 use crate::Result;
@@ -263,24 +263,6 @@ impl<'executable> Debuggee<'executable> {
     where
         F: Fn(&OwnedSymbol) -> bool,
     {
-        let mut relevant = Vec::new();
-
-        fn finder<F>(buf: &mut Vec<OwnedSymbol>, s: &OwnedSymbol, fil: &F)
-        where
-            F: Fn(&OwnedSymbol) -> bool,
-        {
-            for c in s.children() {
-                finder(buf, c, fil);
-            }
-            if fil(s) {
-                buf.push(s.clone());
-            }
-        }
-
-        for s in self.symbols() {
-            finder(&mut relevant, s, &fil);
-        }
-
-        relevant
+        search_through_symbols(self.symbols(), fil)
     }
 }

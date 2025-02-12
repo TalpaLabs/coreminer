@@ -5,7 +5,7 @@ use crate::Word;
 
 pub type RawPointer = *mut std::ffi::c_void;
 
-#[derive(Hash, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Hash, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Addr(usize);
 
 impl Addr {
@@ -125,5 +125,11 @@ impl From<Addr> for Word {
 impl From<Addr> for u64 {
     fn from(value: Addr) -> Self {
         value.0 as u64
+    }
+}
+
+impl std::fmt::Debug for Addr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:018x}", self.0)
     }
 }

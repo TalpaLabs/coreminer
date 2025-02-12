@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::rc::Rc;
 
 use gimli::{Attribute, Encoding, EndianRcSlice, NativeEndian, Reader};
@@ -30,7 +31,7 @@ pub enum SymbolKind {
     Block,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct OwnedSymbol {
     offset: usize,
     name: Option<String>,
@@ -198,5 +199,35 @@ impl TryFrom<gimli::DwTag> for SymbolKind {
             | gimli::DW_TAG_common_block => SymbolKind::Block,
             _ => SymbolKind::Other,
         })
+    }
+}
+
+impl Debug for OwnedSymbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OwnedSymbol")
+            .field("offset", &self.offset)
+            .field("kind", &self.kind)
+            .field("name", &self.name)
+            .field("low_addr", &self.low_addr)
+            .field("high_addr", &self.high_addr)
+            .field("datatype", &self.datatype)
+            .field(
+                "location",
+                &format_args!("{}", &dbg_large_option(self.location())),
+            )
+            .field(
+                "frame_base",
+                &format_args!("{}", &dbg_large_option(self.frame_base())),
+            )
+            .field("byte_size", &self.byte_size)
+            .field("children", &self.children)
+            .finish()
+    }
+}
+
+fn dbg_large_option<T>(o: Option<T>) -> &'static str {
+    match o {
+        Some(_inner) => "Some(...)",
+        None => "None",
     }
 }

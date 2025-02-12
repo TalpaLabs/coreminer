@@ -1,9 +1,8 @@
-use gimli::{Attribute, Encoding};
 use tracing::info;
 
 use crate::dbginfo::{search_through_symbols, OwnedSymbol, SymbolKind};
 use crate::debuggee::Debuggee;
-use crate::dwarf_parse::{FrameInfo, GimliReaderThing};
+use crate::dwarf_parse::FrameInfo;
 use crate::errors::{DebuggerError, Result};
 use crate::{get_reg, mem_read, Addr, Word};
 

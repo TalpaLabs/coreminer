@@ -17,6 +17,10 @@ jobs:
     name: Release-plz release
     runs-on: ubuntu-latest
     steps:
+      - name: install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install libunwind-dev
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -39,6 +43,10 @@ jobs:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
     steps:
+      - name: install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install libunwind-dev
       - name: Checkout repository
         uses: actions/checkout@v4
         with:

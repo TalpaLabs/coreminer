@@ -5,7 +5,7 @@ use gimli::{Expression, Reader, Unit};
 use nix::unistd::Pid;
 use tracing::{trace, warn};
 
-use crate::dbginfo::{GimliLocation, OwnedSymbol};
+use crate::dbginfo::GimliLocation;
 use crate::debugger::Debuggee;
 use crate::errors::{DebuggerError, Result};
 use crate::{get_reg, mem_read, Addr};

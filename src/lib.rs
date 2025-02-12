@@ -8,7 +8,6 @@ use nix::unistd::Pid;
 
 use crate::errors::Result;
 
-use self::dbginfo::GimliLocation;
 use self::errors::DebuggerError;
 
 pub mod breakpoint;
@@ -346,12 +345,12 @@ pub fn set_reg(pid: Pid, r: Register, v: u64) -> Result<()> {
     Ok(())
 }
 
-pub fn gimli_location_to_addr(_pid: Pid, loc: &GimliLocation) -> Result<Addr> {
-    match loc {
-        gimli::Location::Address { address } => Ok((*address).into()),
-        other => unimplemented!("reading a location with {other:?} is not implemented"),
-    }
-}
+// pub fn gimli_location_to_addr(_pid: Pid, loc: &GimliLocation) -> Result<Addr> {
+//     match loc {
+//         gimli::Location::Address { address } => Ok((*address).into()),
+//         other => unimplemented!("reading a location with {other:?} is not implemented"),
+//     }
+// }
 
 #[cfg(test)]
 mod test {

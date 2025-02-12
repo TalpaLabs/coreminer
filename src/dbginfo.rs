@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use gimli::{EndianRcSlice, NativeEndian, Reader};
+use gimli::{Attribute, EndianRcSlice, NativeEndian, Reader};
 use object::{Object, ObjectSection};
 
 use crate::dwarf_parse::GimliReaderThing;
@@ -37,10 +37,10 @@ pub struct OwnedSymbol {
     pub low_addr: Option<Addr>,
     pub high_addr: Option<Addr>,
     pub datatype: Option<usize>,
-    pub frame_base: Option<GimliLocation>,
     pub kind: SymbolKind,
-    pub location: Option<GimliLocation>,
     pub children: Vec<Self>,
+    pub location: Option<Attribute<GimliReaderThing>>,
+    pub frame_base: Option<Attribute<GimliReaderThing>>,
 }
 
 impl OwnedSymbol {
@@ -51,8 +51,8 @@ impl OwnedSymbol {
         high_addr: Option<Addr>,
         kind: SymbolKind,
         datatype: Option<usize>,
-        location: Option<GimliLocation>,
-        frame_base: Option<GimliLocation>,
+        location: Option<Attribute<GimliReaderThing>>,
+        frame_base: Option<Attribute<GimliReaderThing>>,
         children: &[Self],
     ) -> Self {
         Self {

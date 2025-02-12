@@ -32,12 +32,6 @@ impl Debuggee<'_> {
         let loc = sym.location.as_ref().unwrap();
         debug!("loc of that thing: {loc:?}");
 
-        match loc {
-            gimli::Location::Address { address } => Ok(VariableValue::Other(crate::mem_read_word(
-                self.pid,
-                (*address).into(),
-            )?)),
-            other => unimplemented!("reading a location with {other:?} is not implemented"),
-        }
+        todo!()
     }
 }

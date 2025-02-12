@@ -101,7 +101,7 @@ impl Debuggee<'_> {
         })
     }
 
-    pub(crate) fn parse_byte_size(
+    pub(crate) fn parse_udata(
         attribute: Option<Attribute<GimliReaderThing>>,
     ) -> Result<Option<usize>> {
         Ok(if let Some(a) = attribute {

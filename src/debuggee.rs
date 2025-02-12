@@ -117,7 +117,7 @@ impl<'executable> Debuggee<'executable> {
             gimli::DW_TAG_base_type => {
                 let name = Self::parse_string(dwarf, unit, entry.attr(DW_AT_name)?)?;
                 let kind = SymbolKind::try_from(entry.tag())?;
-                let byte_size = Self::parse_byte_size(entry.attr(DW_AT_byte_size)?)?;
+                let byte_size = Self::parse_udata(entry.attr(DW_AT_byte_size)?)?;
 
                 let mut sym = OwnedSymbol::new(entry.offset().0, kind, &[], unit.encoding());
                 sym.set_name(name);

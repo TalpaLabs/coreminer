@@ -1,16 +1,29 @@
 use core::panic;
 
 use gimli::write::LocationListOffsets;
-use gimli::{Evaluation, Expression, Piece, Reader, Unit};
+use gimli::{Expression, Reader, Unit};
 use nix::unistd::Pid;
 use tracing::{trace, warn};
 
 use crate::dbginfo::{GimliLocation, OwnedSymbol};
-use crate::debugger::{Debuggee, Debugger};
+use crate::debugger::Debuggee;
 use crate::errors::{DebuggerError, Result};
-use crate::{mem_read, Addr};
+use crate::{get_reg, mem_read, Addr};
 
 pub(crate) type GimliReaderThing = gimli::EndianReader<gimli::LittleEndian, std::rc::Rc<[u8]>>;
+
+pub struct FrameInfos {
+    pub frame_base: Option<Addr>,
+    pub canonical_frame_address: Option<Addr>,
+}
+impl FrameInfos {
+    pub(crate) fn empty() -> FrameInfos {
+        FrameInfos {
+            frame_base: None,
+            canonical_frame_address: None,
+        }
+    }
+}
 
 impl Debuggee<'_> {
     pub(crate) fn parse_addr_low(
@@ -93,7 +106,7 @@ impl Debuggee<'_> {
         pid: Pid,
         unit: &Unit<GimliReaderThing>,
         attribute: Option<gimli::Attribute<GimliReaderThing>>,
-        last_function: &mut Option<OwnedSymbol>,
+        frame_infos: &mut FrameInfos,
     ) -> Result<Option<GimliLocation>> {
         let attribute = match attribute {
             None => return Ok(None),
@@ -102,7 +115,7 @@ impl Debuggee<'_> {
 
         match attribute.value() {
             gimli::AttributeValue::Exprloc(expr) => {
-                Self::eval_expression(pid, unit, expr, last_function)
+                Self::eval_expression(pid, unit, expr, frame_infos)
             }
             // gimli::AttributeValue::LocationListsRef(loclist_offs) => {
             //     Self::parse_loclist(loclist_offs)
@@ -121,7 +134,7 @@ impl Debuggee<'_> {
         pid: Pid,
         unit: &Unit<GimliReaderThing>,
         expression: Expression<GimliReaderThing>,
-        last_function: &mut Option<OwnedSymbol>,
+        frame_infos: &mut FrameInfos,
     ) -> Result<Option<GimliLocation>> {
         let mut evaluation = expression.evaluation(unit.encoding());
         let mut res = evaluation.evaluate()?;
@@ -149,20 +162,15 @@ impl Debuggee<'_> {
                     res = evaluation.resume_with_register(gimli::Value::from_u64(gimli::ValueType::Generic, reg_value)?)?;
                 }
                 gimli::EvaluationResult::RequiresFrameBase =>{
-                    let last_fun = match last_function {
-                        None => panic!("there was no last_function, so no frame base is known"),
-                        Some(f) => f.frame_base.clone()
-                    };
-                    let frame_base_location = match last_fun {
-                        None => panic!("last_function has no frame base: {last_fun:?}"),
-                        Some(frame_loc) => frame_loc
-                    };
-
-                    let frame_base: Addr = crate::gimli_location_to_addr(pid, &frame_base_location)?;
+                    let frame_base: Addr = frame_infos.frame_base.expect("frame base was None");
 
                     res = evaluation.resume_with_frame_base(
                         frame_base.u64()
                     )?;
+                }
+                gimli::EvaluationResult::RequiresCallFrameCfa => {
+                    let cfa = get_reg(pid, crate::Register::rbp)?;
+                    res = evaluation.resume_with_call_frame_cfa(cfa)?;
                 }
                 other => {
                     unimplemented!("Gimli expression parsing for {other:?} is not implemented")

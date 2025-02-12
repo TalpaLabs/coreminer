@@ -1,12 +1,12 @@
 use std::fmt::Display;
-use std::ops::{Add, Sub};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use crate::Word;
 
 pub type RawPointer = *mut std::ffi::c_void;
 
 #[derive(Hash, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Addr(pub RawPointer);
+pub struct Addr(usize);
 
 impl Addr {
     pub fn from_relative(base: Addr, raw: usize) -> Addr {
@@ -24,7 +24,7 @@ impl Addr {
         self.0 as u64
     }
     pub fn raw_pointer(&self) -> RawPointer {
-        self.0
+        self.0 as RawPointer
     }
 }
 
@@ -37,58 +37,82 @@ impl Display for Addr {
 impl Add for Addr {
     type Output = Self;
     fn add(self, rhs: Self) -> Self::Output {
-        Self((self.0 as usize + rhs.0 as usize) as RawPointer)
+        Self(self.0 as usize + rhs.0 as usize)
     }
 }
 
 impl Add<usize> for Addr {
     type Output = Self;
     fn add(self, rhs: usize) -> Self::Output {
-        Self((self.0 as usize + rhs) as RawPointer)
+        Self(self.0 as usize + rhs)
+    }
+}
+
+impl AddAssign for Addr {
+    fn add_assign(&mut self, rhs: Self) {
+        (*self).0 += rhs.0 as usize
+    }
+}
+
+impl AddAssign<usize> for Addr {
+    fn add_assign(&mut self, rhs: usize) {
+        (*self).0 += rhs
+    }
+}
+
+impl SubAssign for Addr {
+    fn sub_assign(&mut self, rhs: Self) {
+        (*self).0 -= rhs.0 as usize
+    }
+}
+
+impl SubAssign<usize> for Addr {
+    fn sub_assign(&mut self, rhs: usize) {
+        (*self).0 -= rhs
     }
 }
 
 impl Sub for Addr {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self::Output {
-        Self((self.0 as usize - rhs.0 as usize) as RawPointer)
+        Self(self.0 as usize - rhs.0 as usize)
     }
 }
 
 impl Sub<usize> for Addr {
     type Output = Self;
     fn sub(self, rhs: usize) -> Self::Output {
-        Self((self.0 as usize - rhs) as RawPointer)
+        Self(self.0 as usize - rhs)
     }
 }
 
 impl From<RawPointer> for Addr {
     fn from(value: RawPointer) -> Self {
-        Addr(value)
+        Addr(value as usize)
     }
 }
 
 impl From<Addr> for RawPointer {
     fn from(value: Addr) -> Self {
-        value.0
+        value.0 as RawPointer
     }
 }
 
 impl From<usize> for Addr {
     fn from(value: usize) -> Self {
-        Addr(value as RawPointer)
+        Addr(value)
     }
 }
 
 impl From<Word> for Addr {
     fn from(value: Word) -> Self {
-        Addr(value as RawPointer)
+        Addr(value as usize)
     }
 }
 
 impl From<u64> for Addr {
     fn from(value: u64) -> Self {
-        Addr(value as RawPointer)
+        Addr(value as usize)
     }
 }
 

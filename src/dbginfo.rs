@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use gimli::{Attribute, EndianRcSlice, NativeEndian, Reader};
+use gimli::{Attribute, Encoding, EndianRcSlice, NativeEndian, Reader};
 use object::{Object, ObjectSection};
 
 use crate::dwarf_parse::GimliReaderThing;
@@ -32,44 +32,87 @@ pub enum SymbolKind {
 
 #[derive(Debug, Clone)]
 pub struct OwnedSymbol {
-    pub offset: usize,
-    pub name: Option<String>,
-    pub low_addr: Option<Addr>,
-    pub high_addr: Option<Addr>,
-    pub datatype: Option<usize>,
-    pub kind: SymbolKind,
-    pub children: Vec<Self>,
-    pub location: Option<Attribute<GimliReaderThing>>,
-    pub frame_base: Option<Attribute<GimliReaderThing>>,
+    offset: usize,
+    name: Option<String>,
+    low_addr: Option<Addr>,
+    high_addr: Option<Addr>,
+    datatype: Option<usize>,
+    kind: SymbolKind,
+    children: Vec<Self>,
+    location: Option<Attribute<GimliReaderThing>>,
+    frame_base: Option<Attribute<GimliReaderThing>>,
+    byte_size: Option<usize>,
+    encoding: gimli::Encoding,
 }
 
 impl OwnedSymbol {
     pub fn new(
         code: usize,
-        name: Option<impl ToString>,
-        low_addr: Option<Addr>,
-        high_addr: Option<Addr>,
         kind: SymbolKind,
-        datatype: Option<usize>,
-        location: Option<Attribute<GimliReaderThing>>,
-        frame_base: Option<Attribute<GimliReaderThing>>,
         children: &[Self],
+        encoding: gimli::Encoding,
     ) -> Self {
         Self {
             offset: code,
-            name: name.map(|name| name.to_string()),
-            low_addr,
-            high_addr,
+            name: None,
+            low_addr: None,
+            high_addr: None,
             kind,
-            datatype,
-            location,
-            frame_base,
+            datatype: None,
+            location: None,
+            frame_base: None,
             children: children.to_vec(),
+            byte_size: None,
+            encoding,
         }
     }
 
-    pub fn kind(&self) -> SymbolKind {
-        self.kind
+    pub fn set_offset(&mut self, offset: usize) {
+        self.offset = offset;
+    }
+
+    pub fn set_name(&mut self, name: Option<String>) {
+        self.name = name;
+    }
+
+    pub fn set_low_addr(&mut self, low_addr: Option<Addr>) {
+        self.low_addr = low_addr;
+    }
+
+    pub fn set_high_addr(&mut self, high_addr: Option<Addr>) {
+        self.high_addr = high_addr;
+    }
+
+    pub fn set_datatype(&mut self, datatype: Option<usize>) {
+        self.datatype = datatype;
+    }
+
+    pub fn set_kind(&mut self, kind: SymbolKind) {
+        self.kind = kind;
+    }
+
+    pub fn set_children(&mut self, children: Vec<Self>) {
+        self.children = children;
+    }
+
+    pub fn set_location(&mut self, location: Option<Attribute<GimliReaderThing>>) {
+        self.location = location;
+    }
+
+    pub fn set_frame_base(&mut self, frame_base: Option<Attribute<GimliReaderThing>>) {
+        self.frame_base = frame_base;
+    }
+
+    pub fn set_byte_size(&mut self, byte_size: Option<usize>) {
+        self.byte_size = byte_size;
+    }
+
+    pub fn set_encoding(&mut self, encoding: gimli::Encoding) {
+        self.encoding = encoding;
+    }
+
+    pub fn offset(&self) -> usize {
+        self.offset
     }
 
     pub fn name(&self) -> Option<&str> {
@@ -84,12 +127,32 @@ impl OwnedSymbol {
         self.high_addr
     }
 
+    pub fn datatype(&self) -> Option<usize> {
+        self.datatype
+    }
+
+    pub fn kind(&self) -> SymbolKind {
+        self.kind
+    }
+
     pub fn children(&self) -> &[OwnedSymbol] {
         &self.children
     }
 
-    pub fn datatype(&self) -> Option<usize> {
-        self.datatype
+    pub fn location(&self) -> Option<&Attribute<GimliReaderThing>> {
+        self.location.as_ref()
+    }
+
+    pub fn frame_base(&self) -> Option<&Attribute<GimliReaderThing>> {
+        self.frame_base.as_ref()
+    }
+
+    pub fn byte_size(&self) -> Option<usize> {
+        self.byte_size
+    }
+
+    pub fn encoding(&self) -> Encoding {
+        self.encoding
     }
 }
 

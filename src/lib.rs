@@ -13,6 +13,7 @@ use self::errors::DebuggerError;
 pub mod breakpoint;
 pub mod consts;
 pub mod dbginfo;
+pub mod debuggee;
 pub mod debugger;
 pub mod disassemble;
 pub mod dwarf_parse;

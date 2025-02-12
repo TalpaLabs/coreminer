@@ -1,12 +1,11 @@
 use core::panic;
+use std::usize;
 
-use gimli::write::LocationListOffsets;
-use gimli::{Expression, Reader, Unit};
-use nix::unistd::Pid;
+use gimli::{Attribute, Expression, Reader, Unit};
 use tracing::{trace, warn};
 
 use crate::dbginfo::GimliLocation;
-use crate::debugger::Debuggee;
+use crate::debuggee::Debuggee;
 use crate::errors::{DebuggerError, Result};
 use crate::{get_reg, mem_read, Addr};
 
@@ -102,41 +101,33 @@ impl Debuggee<'_> {
         })
     }
 
-    pub(crate) fn parse_location(
-        pid: Pid,
-        unit: &Unit<GimliReaderThing>,
-        attribute: Option<gimli::Attribute<GimliReaderThing>>,
-        frame_infos: &mut FrameInfos,
-    ) -> Result<Option<GimliLocation>> {
-        let attribute = match attribute {
-            None => return Ok(None),
-            Some(a) => a,
-        };
+    pub(crate) fn parse_byte_size(
+        attribute: Option<Attribute<GimliReaderThing>>,
+    ) -> Result<Option<usize>> {
+        Ok(if let Some(a) = attribute {
+            a.udata_value().map(|v| v as usize)
+        } else {
+            None
+        })
+    }
 
+    pub(crate) fn parse_location(
+        &self,
+        attribute: &gimli::Attribute<GimliReaderThing>,
+        frame_infos: &mut FrameInfos,
+    ) -> Result<GimliLocation> {
         match attribute.value() {
-            gimli::AttributeValue::Exprloc(expr) => {
-                Self::eval_expression(pid, unit, expr, frame_infos)
-            }
-            // gimli::AttributeValue::LocationListsRef(loclist_offs) => {
-            //     Self::parse_loclist(loclist_offs)
-            // }
+            gimli::AttributeValue::Exprloc(expr) => self.eval_expression(expr, frame_infos),
             _ => panic!("we did not know a location could be this"),
         }
     }
 
-    pub(crate) fn parse_loclist(
-        loclist_offset: LocationListOffsets,
-    ) -> Result<Option<GimliLocation>> {
-        todo!()
-    }
-
     pub(crate) fn eval_expression(
-        pid: Pid,
-        unit: &Unit<GimliReaderThing>,
+        &self,
         expression: Expression<GimliReaderThing>,
         frame_infos: &mut FrameInfos,
-    ) -> Result<Option<GimliLocation>> {
-        let mut evaluation = expression.evaluation(unit.encoding());
+    ) -> Result<GimliLocation> {
+        let mut evaluation = expression.evaluation(todo!());
         let mut res = evaluation.evaluate()?;
         loop {
             match res {
@@ -151,14 +142,14 @@ impl Debuggee<'_> {
                 } => {
                     let mut buff = vec![0; size as usize];
                     let addr: Addr = address.into(); // NOTE: may be relative?
-                    let read_this_many_bytes = mem_read(&mut buff, pid, addr)?;
+                    let read_this_many_bytes = mem_read(&mut buff, self.pid, addr)?;
                     assert_eq!(size as usize, read_this_many_bytes);
                     let value = to_value(size, &buff);
                     res = evaluation.resume_with_memory(value)?;
                 }
                 gimli::EvaluationResult::RequiresRegister { register, .. /* ignore the actual type and give as word */ } => {
                     let reg= crate::Register::try_from(register)?;
-                    let reg_value = crate::get_reg(pid, reg)?;
+                    let reg_value = crate::get_reg(self.pid, reg)?;
                     res = evaluation.resume_with_register(gimli::Value::from_u64(gimli::ValueType::Generic, reg_value)?)?;
                 }
                 gimli::EvaluationResult::RequiresFrameBase =>{
@@ -169,7 +160,7 @@ impl Debuggee<'_> {
                     )?;
                 }
                 gimli::EvaluationResult::RequiresCallFrameCfa => {
-                    let cfa = get_reg(pid, crate::Register::rbp)?;
+                    let cfa = get_reg(self.pid, crate::Register::rbp)?;
                     res = evaluation.resume_with_call_frame_cfa(cfa)?;
                 }
                 other => {
@@ -181,11 +172,11 @@ impl Debuggee<'_> {
 
         if pieces.is_empty() {
             warn!("really? we did all that parsing and got NOTHING");
-            Ok(None)
+            panic!()
         } else {
             let loc = pieces[0].location.clone();
             trace!("location for the expression: {loc:?}");
-            Ok(Some(loc))
+            Ok(loc)
         }
     }
 }

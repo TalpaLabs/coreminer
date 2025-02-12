@@ -18,7 +18,7 @@ impl Addr {
     }
 
     pub fn usize(&self) -> usize {
-        self.0 as usize
+        self.0
     }
     pub fn u64(&self) -> u64 {
         self.0 as u64
@@ -30,59 +30,59 @@ impl Addr {
 
 impl Display for Addr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#018x}", self.0 as usize)
+        write!(f, "{:#018x}", { self.0 })
     }
 }
 
 impl Add for Addr {
     type Output = Self;
     fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 as usize + rhs.0 as usize)
+        Self(self.0 + rhs.0)
     }
 }
 
 impl Add<usize> for Addr {
     type Output = Self;
     fn add(self, rhs: usize) -> Self::Output {
-        Self(self.0 as usize + rhs)
+        Self(self.0 + rhs)
     }
 }
 
 impl AddAssign for Addr {
     fn add_assign(&mut self, rhs: Self) {
-        (*self).0 += rhs.0 as usize
+        self.0 += rhs.0
     }
 }
 
 impl AddAssign<usize> for Addr {
     fn add_assign(&mut self, rhs: usize) {
-        (*self).0 += rhs
+        self.0 += rhs
     }
 }
 
 impl SubAssign for Addr {
     fn sub_assign(&mut self, rhs: Self) {
-        (*self).0 -= rhs.0 as usize
+        self.0 -= rhs.0
     }
 }
 
 impl SubAssign<usize> for Addr {
     fn sub_assign(&mut self, rhs: usize) {
-        (*self).0 -= rhs
+        self.0 -= rhs
     }
 }
 
 impl Sub for Addr {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self::Output {
-        Self(self.0 as usize - rhs.0 as usize)
+        Self(self.0 - rhs.0)
     }
 }
 
 impl Sub<usize> for Addr {
     type Output = Self;
     fn sub(self, rhs: usize) -> Self::Output {
-        Self(self.0 as usize - rhs)
+        Self(self.0 - rhs)
     }
 }
 

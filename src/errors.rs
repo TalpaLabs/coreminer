@@ -1,6 +1,8 @@
 use gimli::DwTag;
 use thiserror::Error;
 
+use crate::dbginfo::SymbolKind;
+
 pub type Result<T> = std::result::Result<T, DebuggerError>;
 
 #[derive(Error, Debug)]
@@ -45,4 +47,14 @@ pub enum DebuggerError {
     HighAddrExistsButNotLowAddr,
     #[error("Register with index {0} is not supported by this debugger")]
     UnimplementedRegister(u16),
+    #[error("Wrong Symbol kind for this operation: {0:?}")]
+    WrongSymbolKind(SymbolKind),
+    #[error("Symbol has no datatype (but needed it)")]
+    VariableSymbolNoType,
+    #[error("Symbol has no location (but needed it)")]
+    SymbolHasNoLocation,
+    #[error("Variable expression led to multiple variables being found: {0}")]
+    AmbiguousVarExpr(String),
+    #[error("Variable expression led to no variables being found: {0}")]
+    VarExprReturnedNothing(String),
 }

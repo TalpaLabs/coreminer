@@ -1,7 +1,6 @@
 use core::panic;
-use std::usize;
 
-use gimli::{Attribute, Expression, Reader, Unit};
+use gimli::{Attribute, Encoding, Expression, Reader, Unit};
 use tracing::{trace, warn};
 
 use crate::dbginfo::GimliLocation;
@@ -115,9 +114,12 @@ impl Debuggee<'_> {
         &self,
         attribute: &gimli::Attribute<GimliReaderThing>,
         frame_infos: &mut FrameInfos,
+        encoding: Encoding,
     ) -> Result<GimliLocation> {
         match attribute.value() {
-            gimli::AttributeValue::Exprloc(expr) => self.eval_expression(expr, frame_infos),
+            gimli::AttributeValue::Exprloc(expr) => {
+                self.eval_expression(expr, frame_infos, encoding)
+            }
             _ => panic!("we did not know a location could be this"),
         }
     }
@@ -126,8 +128,9 @@ impl Debuggee<'_> {
         &self,
         expression: Expression<GimliReaderThing>,
         frame_infos: &mut FrameInfos,
+        encoding: Encoding,
     ) -> Result<GimliLocation> {
-        let mut evaluation = expression.evaluation(todo!());
+        let mut evaluation = expression.evaluation(encoding);
         let mut res = evaluation.evaluate()?;
         loop {
             match res {

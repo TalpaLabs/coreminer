@@ -520,9 +520,12 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         let rip: Addr = self.get_current_addr()?;
         let locals = dbge.get_local_variables(rip)?;
         debug!("locals: {locals:?}");
-        let vars = dbge.filter_expressions(&locals, expression)?;
+        let vars = dbge.filter_expressions(&locals, &expression)?;
         if vars.len() > 1 {
-            panic!("too many vars")
+            return Err(DebuggerError::AmbiguousVarExpr(expression));
+        }
+        if vars.is_empty() {
+            return Err(DebuggerError::VarExprReturnedNothing(expression));
         }
 
         let val = dbge.var_read(&vars[0])?;

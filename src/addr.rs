@@ -130,6 +130,6 @@ impl From<Addr> for u64 {
 
 impl std::fmt::Debug for Addr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:018x}", self.0)
+        write!(f, "{:#018x}", self.0)
     }
 }

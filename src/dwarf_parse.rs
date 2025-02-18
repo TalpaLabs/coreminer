@@ -148,7 +148,7 @@ impl Debuggee<'_> {
                 gimli::EvaluationResult::RequiresMemory {
                     address,
                     size,
-                    .. // there is more but that is getting to complicated, just give gimli 
+                    .. // there is more but that is getting to complicated, just give gimli
                     // unsized values of the right size
                 } => {
                     let mut buff = vec![0; size as usize];
@@ -165,6 +165,7 @@ impl Debuggee<'_> {
                 }
                 gimli::EvaluationResult::RequiresFrameBase =>{
                     let frame_base: Addr = frame_info.frame_base;
+                    trace!("frame_base: {frame_base}");
 
                     res = evaluation.resume_with_frame_base(
                         frame_base.u64()
@@ -172,6 +173,7 @@ impl Debuggee<'_> {
                 }
                 gimli::EvaluationResult::RequiresCallFrameCfa => {
                     let cfa: Addr = frame_info.canonical_frame_address;
+                    trace!("cfa: {cfa}");
                     res = evaluation.resume_with_call_frame_cfa(cfa.into())?;
                 }
                 other => {

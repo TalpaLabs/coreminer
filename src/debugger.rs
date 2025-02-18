@@ -521,7 +521,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
         let rip: Addr = self.get_current_addr()?;
         let locals = dbge.get_local_variables(rip)?;
-        debug!("locals: {locals:?}");
         let vars = dbge.filter_expressions(&locals, &expression)?;
         if vars.len() > 1 {
             return Err(DebuggerError::AmbiguousVarExpr(expression));
@@ -531,7 +530,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         }
 
         let frame_info = FrameInfo::new(
-            self.get_reg(crate::Register::rbp)?.into(),
+            self.get_reg(crate::Register::rsp)?.into(),
             self.get_reg(crate::Register::rbp)?.into(),
         );
         let val = dbge.var_read(&vars[0], &frame_info)?;

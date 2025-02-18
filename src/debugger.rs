@@ -101,6 +101,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                 | Signal::SIGINT
                 | Signal::SIGPIPE
                 | Signal::SIGSTOP
+                | Signal::SIGWINCH
                 | Signal::SIGILL => {
                     self.handle_important_signal(sig, siginfo)?;
                     break;

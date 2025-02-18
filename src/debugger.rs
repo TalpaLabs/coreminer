@@ -521,6 +521,17 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         let dbge = self.debuggee.as_ref().unwrap();
 
         let rip: Addr = self.get_current_addr()?;
+        let current_function = match dbge.get_function_by_addr(rip)? {
+            Some(f) if f.frame_base().is_some() => f,
+            Some(_) => {
+                return Err(DebuggerError::AttributeDoesNotExist(
+                    gimli::DW_AT_frame_base,
+                ))
+            }
+            None => {
+                return Err(DebuggerError::NotInFunction);
+            }
+        };
         let locals = dbge.get_local_variables(rip)?;
         let vars = dbge.filter_expressions(&locals, &expression)?;
         if vars.len() > 1 {
@@ -530,10 +541,35 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             return Err(DebuggerError::VarExprReturnedNothing(expression));
         }
 
-        let frame_info = FrameInfo::new(
-            self.get_reg(crate::Register::rsp)?.into(),
-            self.get_reg(crate::Register::rbp)?.into(),
+        let mut frame_info = FrameInfo::new(
+            None,
+            // https://stackoverflow.com/questions/7534420/gas-explanation-of-cfi-def-cfa-offset
+            //
+            // NOTE: the cfa is where the rsp was before the call instruction is made (and the prolog
+            // puts the return addr on the stack)
+            //
+            // HACK: just adding 16 (a word) to the rbp is probably not consistent. It works on my
+            // machine with the test example, but I'm not too sure about how to consistently
+            // calculate the cfa.
+            Some(Into::<Addr>::into(self.get_reg(crate::Register::rbp)?) + 16usize),
         );
+
+        // we basically compute the rbp...
+        let frame_base = dbge.parse_location(
+            current_function.frame_base().unwrap(),
+            &frame_info,
+            current_function.encoding(),
+        )?;
+
+        let frame_base: Addr = match frame_base {
+            gimli::Location::Address { address } => address.into(),
+            other => unimplemented!(
+                "frame base DWARF location was not an address as expected: is {other:?}"
+            ),
+        };
+
+        frame_info.frame_base = Some(frame_base);
+
         let val = dbge.var_read(&vars[0], &frame_info)?;
 
         Ok(Feedback::Variable(val))

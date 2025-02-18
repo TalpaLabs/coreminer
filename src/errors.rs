@@ -59,4 +59,10 @@ pub enum DebuggerError {
     VarExprReturnedNothing(String),
     #[error("No datatype found for symbol which needed one")]
     NoDatatypeFound,
+    #[error("The debuggee is currently not in a known function")]
+    NotInFunction,
+    #[error("A required attribute did not exist: {0:?}")]
+    AttributeDoesNotExist(gimli::DwAt),
+    #[error("While parsing a DWARF location: no frame information was provided")]
+    NoFrameInfo,
 }

@@ -11,22 +11,25 @@ use crate::{mem_read, Addr};
 pub(crate) type GimliReaderThing = gimli::EndianReader<gimli::LittleEndian, std::rc::Rc<[u8]>>;
 
 pub struct FrameInfo {
-    pub frame_base: Addr,
-    pub canonical_frame_address: Addr,
+    pub frame_base: Option<Addr>,
+    pub canonical_frame_address: Option<Addr>,
 }
 impl FrameInfo {
-    pub(crate) fn new(frame_base: Addr, canonical_frame_address: Addr) -> FrameInfo {
+    pub(crate) fn new(
+        frame_base: Option<Addr>,
+        canonical_frame_address: Option<Addr>,
+    ) -> FrameInfo {
         FrameInfo {
             frame_base,
             canonical_frame_address,
         }
     }
 
-    pub fn canonical_frame_address(&self) -> Addr {
+    pub fn canonical_frame_address(&self) -> Option<Addr> {
         self.canonical_frame_address
     }
 
-    pub fn frame_base(&self) -> Addr {
+    pub fn frame_base(&self) -> Option<Addr> {
         self.frame_base
     }
 }
@@ -164,7 +167,7 @@ impl Debuggee<'_> {
                     res = evaluation.resume_with_register(gimli::Value::from_u64(gimli::ValueType::Generic, reg_value)?)?;
                 }
                 gimli::EvaluationResult::RequiresFrameBase =>{
-                    let frame_base: Addr = frame_info.frame_base;
+                    let frame_base: Addr = frame_info.frame_base.expect("no frame base was given");
                     trace!("frame_base: {frame_base}");
 
                     res = evaluation.resume_with_frame_base(
@@ -172,7 +175,7 @@ impl Debuggee<'_> {
                     )?;
                 }
                 gimli::EvaluationResult::RequiresCallFrameCfa => {
-                    let cfa: Addr = frame_info.canonical_frame_address;
+                    let cfa: Addr = frame_info.canonical_frame_address.expect("no cfa was given");
                     trace!("cfa: {cfa}");
                     res = evaluation.resume_with_call_frame_cfa(cfa.into())?;
                 }

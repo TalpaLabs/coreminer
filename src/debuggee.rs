@@ -8,7 +8,7 @@ use gimli::{
 use nix::sys::ptrace;
 use nix::unistd::Pid;
 use proc_maps::MapRange;
-use tracing::{debug, trace};
+use tracing::debug;
 
 use crate::breakpoint::Breakpoint;
 use crate::dbginfo::{search_through_symbols, CMDebugInfo, OwnedSymbol, SymbolKind};

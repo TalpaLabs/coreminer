@@ -220,8 +220,6 @@ impl<'executable> Debuggee<'executable> {
                 && sym.high_addr().is_some_and(|a| addr < a)
             {
                 return Ok(sym.children().to_vec());
-            } else {
-                trace!("it's not {:#?}", sym);
             }
         }
 
@@ -274,8 +272,8 @@ impl<'executable> Debuggee<'executable> {
         let mut next: Addr = rbp;
         let mut stack = Stack::new(rbp);
         while next >= rsp {
-            next -= 8usize;
             stack.push(mem_read_word(self.pid, next)?);
+            next -= 8usize;
         }
 
         Ok(stack)

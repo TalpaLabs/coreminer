@@ -32,8 +32,8 @@ impl Display for Stack {
         for (idx, w) in self.words().iter().enumerate() {
             writeln!(
                 f,
-                "{:<24}\t{:018x}",
-                self.start_addr + (idx * WORD_BYTES),
+                "{:<24}\t{:016x}",
+                self.start_addr - (idx * WORD_BYTES),
                 w
             )?;
         }

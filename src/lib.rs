@@ -1,5 +1,5 @@
 use std::array::TryFromSliceError;
-use std::io::{BufRead, Read, Seek, Write};
+use std::io::{Read, Seek, Write};
 use std::str::FromStr;
 
 use nix::sys::ptrace;

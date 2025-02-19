@@ -5,7 +5,7 @@ use crate::dbginfo::{search_through_symbols, OwnedSymbol, SymbolKind};
 use crate::debuggee::Debuggee;
 use crate::dwarf_parse::FrameInfo;
 use crate::errors::{DebuggerError, Result};
-use crate::{fill_to_const_arr, get_reg, mem_read, mem_write, set_reg, Addr, Word, WORD_BYTES};
+use crate::{get_reg, mem_read, mem_write, set_reg, Addr, Word, WORD_BYTES};
 
 pub type VariableExpression = String;
 

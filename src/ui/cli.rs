@@ -109,6 +109,14 @@ impl DebuggerUI for CliUi {
                 }
                 let symbol_name: String = self.buf_preparsed[1].to_string();
                 return Ok(Status::ReadVariable(symbol_name));
+            } else if string_matches(&self.buf_preparsed[0], &["vars"]) {
+                if self.buf_preparsed.len() < 3 {
+                    error!("vars SYMBOL VALUE");
+                    continue;
+                }
+                let symbol_name: String = self.buf_preparsed[1].to_string();
+                let value: usize = get_number(&self.buf_preparsed[2])? as usize;
+                return Ok(Status::WriteVariable(symbol_name, value));
             } else if string_matches(&self.buf_preparsed[0], &["bt"]) {
                 return Ok(Status::Backtrace);
             } else if string_matches(&self.buf_preparsed[0], &["so"]) {
@@ -173,6 +181,7 @@ fn get_number(mut raw: &str) -> Result<u64> {
     if raw.starts_with("0x") {
         raw = raw.strip_prefix("0x").unwrap();
     }
+    trace!("raw number: {raw}");
 
     Ok(u64::from_str_radix(raw, 16)?)
 }
@@ -188,5 +197,6 @@ mod test {
         assert_eq!(0x19u64, get_number("0x00019").unwrap());
         assert_eq!(0x19u64, get_number("00019").unwrap());
         assert_eq!(0x19usize, get_number("19").unwrap() as usize);
+        assert_eq!(0x9usize, get_number("9").unwrap() as usize);
     }
 }

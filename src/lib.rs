@@ -1,8 +1,11 @@
-use std::io::{Read, Seek, Write};
+use std::array::TryFromSliceError;
+use std::io::{BufRead, Read, Seek, Write};
 use std::str::FromStr;
 
 use nix::sys::ptrace;
 use nix::unistd::Pid;
+use nix::NixPath;
+use object::ReadRef;
 
 use crate::errors::Result;
 
@@ -248,12 +251,28 @@ pub fn set_reg(pid: Pid, r: Register, v: u64) -> Result<()> {
     Ok(())
 }
 
-// pub fn gimli_location_to_addr(_pid: Pid, loc: &GimliLocation) -> Result<Addr> {
-//     match loc {
-//         gimli::Location::Address { address } => Ok((*address).into()),
-//         other => unimplemented!("reading a location with {other:?} is not implemented"),
-//     }
-// }
+/// Try to downcast any array of [u8] into an array of constant size
+pub(crate) fn fill_to_const_arr<const N: usize>(
+    data: &[u8],
+) -> std::result::Result<[u8; N], TryFromSliceError> {
+    let mut d = data.to_vec();
+    while d.len() > N {
+        d.push(0);
+    }
+    let arr: [u8; N] = data.try_into()?;
+    Ok(arr)
+}
+
+pub(crate) fn bytes_to_word(bytes: &[u8]) -> std::result::Result<Word, TryFromSliceError> {
+    let data: [u8; WORD_BYTES] = fill_to_const_arr(bytes)?;
+    Ok(Word::from_ne_bytes(data))
+}
+
+pub(crate) fn bytes_to_u64(bytes: &[u8]) -> std::result::Result<u64, TryFromSliceError> {
+    const U64_BYTES: usize = u64::BITS as usize / 8;
+    let data: [u8; U64_BYTES] = fill_to_const_arr(bytes)?;
+    Ok(u64::from_ne_bytes(data))
+}
 
 #[cfg(test)]
 mod test {

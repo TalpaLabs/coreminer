@@ -138,7 +138,7 @@ impl DebuggerUI for CliUi {
                 }
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);
-                let value: i64 = get_number(&self.buf_preparsed[1])? as i64;
+                let value: i64 = get_number(&self.buf_preparsed[2])? as i64;
                 return Ok(Status::WriteMem(addr, value));
             } else if string_matches(&self.buf_preparsed[0], &["regs"]) {
                 if self.buf_preparsed.len() < 2 {

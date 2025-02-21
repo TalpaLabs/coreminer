@@ -18,18 +18,16 @@ use crate::stack::Stack;
 use crate::{get_reg, mem_read_word, Result};
 use crate::{mem_read, Addr};
 
-pub struct Debuggee<'symbols> {
+pub struct Debuggee {
     pub(crate) pid: Pid,
     pub(crate) breakpoints: HashMap<Addr, Breakpoint>,
-    #[allow(unused)] // we might need this later
-    pub(crate) dbginfo: CMDebugInfo<'symbols>,
     pub(crate) symbols: Vec<OwnedSymbol>,
 }
 
-impl<'symbols> Debuggee<'symbols> {
+impl Debuggee {
     pub(crate) fn build(
         pid: Pid,
-        dbginfo: CMDebugInfo<'symbols>,
+        dbginfo: CMDebugInfo<'_>,
         breakpoints: HashMap<Addr, Breakpoint>,
     ) -> Result<Self> {
         let mut symbols = Vec::new();
@@ -45,7 +43,6 @@ impl<'symbols> Debuggee<'symbols> {
         Ok(Self {
             pid,
             breakpoints,
-            dbginfo,
             symbols,
         })
     }

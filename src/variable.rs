@@ -1,4 +1,3 @@
-use nix::NixPath;
 use tracing::{info, trace};
 
 use crate::dbginfo::{search_through_symbols, OwnedSymbol, SymbolKind};
@@ -33,26 +32,6 @@ impl VariableValue {
         }
     }
 
-    fn to_ne_bytes(&self) -> Vec<u8> {
-        match self {
-            Self::Bytes(b) => b.clone(),
-            Self::Other(w) => w.to_ne_bytes().to_vec(),
-            Self::Numeric(v) => match v {
-                gimli::Value::U8(v) => v.to_ne_bytes().to_vec(),
-                gimli::Value::I8(v) => v.to_ne_bytes().to_vec(),
-                gimli::Value::U16(v) => v.to_ne_bytes().to_vec(),
-                gimli::Value::I16(v) => v.to_ne_bytes().to_vec(),
-                gimli::Value::U32(v) => v.to_ne_bytes().to_vec(),
-                gimli::Value::I32(v) => v.to_ne_bytes().to_vec(),
-                gimli::Value::F32(v) => v.to_ne_bytes().to_vec(),
-                gimli::Value::U64(v) => v.to_ne_bytes().to_vec(),
-                gimli::Value::I64(v) => v.to_ne_bytes().to_vec(),
-                gimli::Value::F64(v) => v.to_ne_bytes().to_vec(),
-                gimli::Value::Generic(v) => v.to_ne_bytes().to_vec(),
-            },
-        }
-    }
-
     fn to_u64(&self) -> u64 {
         match self {
             Self::Bytes(b) => {
@@ -79,32 +58,6 @@ impl VariableValue {
         }
     }
 
-    fn to_word(&self) -> Word {
-        match self {
-            Self::Bytes(b) => {
-                if b.len() > WORD_BYTES {
-                    panic!("too many bytes to put into a word")
-                }
-                // NOTE: this is safe because `b` should never have more bytes than a word
-                crate::bytes_to_word(b).unwrap()
-            }
-            Self::Other(w) => *w,
-            Self::Numeric(v) => match v {
-                gimli::Value::U8(v) => (*v).into(),
-                gimli::Value::I8(v) => (*v).into(),
-                gimli::Value::U16(v) => (*v).into(),
-                gimli::Value::I16(v) => (*v).into(),
-                gimli::Value::U32(v) => (*v).into(),
-                gimli::Value::I32(v) => (*v).into(),
-                gimli::Value::F32(v) => crate::bytes_to_word(&v.to_ne_bytes()).unwrap(),
-                gimli::Value::U64(v) => crate::bytes_to_word(&v.to_ne_bytes()).unwrap(),
-                gimli::Value::I64(v) => *v,
-                gimli::Value::F64(v) => crate::bytes_to_word(&v.to_ne_bytes()).unwrap(),
-                gimli::Value::Generic(v) => crate::bytes_to_word(&v.to_ne_bytes()).unwrap(),
-            },
-        }
-    }
-
     fn resize_to_bytes(&self, byte_size: usize) -> Vec<u8> {
         if byte_size > WORD_BYTES {
             panic!("requested byte size was larger than a word")
@@ -124,7 +77,7 @@ impl From<usize> for VariableValue {
     }
 }
 
-impl Debuggee<'_> {
+impl Debuggee {
     pub fn filter_expressions(
         &self,
         haystack: &[OwnedSymbol],

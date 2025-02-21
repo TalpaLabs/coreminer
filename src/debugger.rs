@@ -23,7 +23,7 @@ use crate::variable::{VariableExpression, VariableValue};
 use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 
 pub struct Debugger<'executable, UI: DebuggerUI> {
-    pub(crate) debuggee: Option<Debuggee<'executable>>,
+    pub(crate) debuggee: Option<Debuggee>,
     pub(crate) ui: UI,
     stored_obj_data: Option<object::File<'executable>>,
     stored_obj_data_raw: Vec<u8>,

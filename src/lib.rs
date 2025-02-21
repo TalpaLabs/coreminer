@@ -4,8 +4,6 @@ use std::str::FromStr;
 
 use nix::sys::ptrace;
 use nix::unistd::Pid;
-use nix::NixPath;
-use object::ReadRef;
 
 use crate::errors::Result;
 
@@ -261,11 +259,6 @@ pub(crate) fn fill_to_const_arr<const N: usize>(
     }
     let arr: [u8; N] = data.try_into()?;
     Ok(arr)
-}
-
-pub(crate) fn bytes_to_word(bytes: &[u8]) -> std::result::Result<Word, TryFromSliceError> {
-    let data: [u8; WORD_BYTES] = fill_to_const_arr(bytes)?;
-    Ok(Word::from_ne_bytes(data))
 }
 
 pub(crate) fn bytes_to_u64(bytes: &[u8]) -> std::result::Result<u64, TryFromSliceError> {

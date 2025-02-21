@@ -34,7 +34,7 @@ impl FrameInfo {
     }
 }
 
-impl Debuggee<'_> {
+impl Debuggee {
     pub(crate) fn parse_addr_low(
         dwarf: &gimli::Dwarf<GimliReaderThing>,
         unit: &Unit<GimliReaderThing>,

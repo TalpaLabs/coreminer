@@ -254,10 +254,10 @@ pub(crate) fn fill_to_const_arr<const N: usize>(
     data: &[u8],
 ) -> std::result::Result<[u8; N], TryFromSliceError> {
     let mut d = data.to_vec();
-    while d.len() > N {
+    while d.len() < N {
         d.push(0);
     }
-    let arr: [u8; N] = data.try_into()?;
+    let arr: [u8; N] = d.as_slice().try_into()?;
     Ok(arr)
 }
 

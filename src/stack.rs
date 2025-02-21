@@ -40,3 +40,17 @@ impl Display for Stack {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_stack_operations() {
+        let mut stack = Stack::new(Addr::from(1000usize));
+        stack.push(42);
+        stack.push(43);
+        assert_eq!(stack.pop(), Some(43));
+        assert_eq!(stack.words(), &[42]);
+    }
+}

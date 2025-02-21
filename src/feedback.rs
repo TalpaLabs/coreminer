@@ -23,7 +23,7 @@ pub enum Feedback {
     Variable(VariableValue),
     Stack(crate::stack::Stack),
     ProcessMap(Vec<proc_maps::MapRange>),
-    Exit(i16),
+    Exit(i32),
 }
 
 impl Display for Feedback {

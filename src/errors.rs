@@ -65,4 +65,6 @@ pub enum DebuggerError {
     AttributeDoesNotExist(gimli::DwAt),
     #[error("While parsing a DWARF location: no frame information was provided")]
     NoFrameInfo,
+    #[error("Tried to run a program while one was already running")]
+    AlreadyRunning,
 }

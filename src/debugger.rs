@@ -80,7 +80,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn wait_signal(&self) -> Result<nix::libc::siginfo_t> {
-        self.err_if_no_debuggee()?;
+        self.handle_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
 
         let mut _status;
@@ -116,7 +116,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn wait(&self, options: &[WaitPidFlag]) -> Result<WaitStatus> {
-        self.err_if_no_debuggee()?;
+        self.handle_no_debuggee()?;
         let mut flags = WaitPidFlag::empty();
         for f in options {
             flags |= *f;
@@ -125,15 +125,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             self.debuggee.as_ref().unwrap().pid,
             if flags.is_empty() { None } else { Some(flags) },
         )?)
-    }
-
-    pub fn parse_exec_data(
-        &mut self,
-        data: &'executable [u8],
-    ) -> Result<object::File<'executable>> {
-        use object::File;
-        let file = File::parse(data)?;
-        Ok(file)
     }
 
     pub fn run_debugger(&mut self) -> Result<()> {
@@ -192,7 +183,9 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn cont(&mut self, sig: Option<Signal>) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
         self.go_back_step_over_bp()?;
         ptrace::cont(self.debuggee.as_ref().unwrap().pid, sig)?;
 
@@ -201,13 +194,15 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn dump_regs(&self) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
         let dbge = self.debuggee.as_ref().unwrap();
         let regs = ptrace::getregs(dbge.pid)?;
         Ok(Feedback::Registers(regs))
     }
 
-    fn err_if_no_debuggee(&self) -> Result<()> {
+    fn handle_no_debuggee(&self) -> Result<()> {
         if self.debuggee.is_none() {
             let err = DebuggerError::NoDebugee;
             error!("{err}");
@@ -225,7 +220,9 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn set_bp(&mut self, addr: Addr) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
         let dbge = self.debuggee.as_mut().unwrap();
 
         let mut bp = Breakpoint::new(dbge.pid, addr);
@@ -236,7 +233,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn del_bp(&mut self, addr: Addr) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         let dbge = self.debuggee.as_mut().unwrap();
 
         if let Some(_bp) = dbge.breakpoints.get_mut(&addr) {
@@ -249,7 +249,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     fn atomic_single_step(&self) -> Result<()> {
-        self.err_if_no_debuggee()?;
+        self.handle_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
 
         // FIXME: this is probably noticeable
@@ -262,7 +262,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn single_step(&mut self) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         if self.go_back_step_over_bp()? {
             info!("breakpoint before, caught up and continueing with single step")
         }
@@ -283,7 +286,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn step_out(&mut self) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         {
             let a = self
                 .debuggee
@@ -363,7 +369,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         // You can only have a single mutable refence OR n immutable references
         // Thus, you cannot simply `let bp = ...` at the start and later use things like
         // `self.atomic_single_step`
-        self.err_if_no_debuggee()?;
+        self.handle_no_debuggee()?;
         let maybe_bp_addr: Addr = self.get_current_addr()? - 1;
         trace!("Checkinf if {maybe_bp_addr} had a breakpoint");
 
@@ -388,7 +394,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn disassemble_at(&self, addr: Addr, len: usize) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         let dbge = self.debuggee.as_ref().unwrap();
 
         let t = dbge.disassemble(addr, len)?;
@@ -397,7 +406,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn get_symbol_by_name(&self, name: impl Display) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         let dbge = self.debuggee.as_ref().unwrap();
 
         let symbols: Vec<OwnedSymbol> = dbge.get_symbol_by_name(name)?;
@@ -437,14 +449,20 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     fn infos(&self) -> std::result::Result<Feedback, DebuggerError> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         let dbge = self.debuggee.as_ref().unwrap();
         info!("Breakpoints:\n{:#?}", dbge.breakpoints);
         Ok(Feedback::Ok)
     }
 
     pub fn step_into(&mut self) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         self.go_back_step_over_bp()?;
 
         loop {
@@ -499,7 +517,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn step_over(&mut self) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
         self.go_back_step_over_bp()?;
 
         self.step_into()?;
@@ -507,7 +524,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn backtrace(&self) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         let dbge = self.debuggee.as_ref().unwrap();
 
         let backtrace = unwind::unwind(dbge.pid)?;
@@ -516,12 +536,15 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn get_current_addr(&self) -> Result<Addr> {
-        self.err_if_no_debuggee()?;
+        self.handle_no_debuggee()?;
         Ok((self.get_reg(Register::rip)?).into())
     }
 
     pub fn read_variable(&self, expression: VariableExpression) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         let dbge = self.debuggee.as_ref().unwrap();
 
         let rip: Addr = self.get_current_addr()?;
@@ -584,7 +607,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         expression: VariableExpression,
         value: impl Into<VariableValue>,
     ) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         let dbge = self.debuggee.as_ref().unwrap();
 
         let rip: Addr = self.get_current_addr()?;
@@ -643,7 +669,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn read_mem(&self, addr: Addr) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         let dbge = self.debuggee.as_ref().unwrap();
 
         let w = mem_read_word(dbge.pid, addr)?;
@@ -652,7 +681,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn write_mem(&self, addr: Addr, value: Word) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         let dbge = self.debuggee.as_ref().unwrap();
 
         mem_write_word(dbge.pid, addr, value)?;
@@ -661,21 +693,27 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn get_reg(&self, r: Register) -> Result<u64> {
-        self.err_if_no_debuggee()?;
+        self.handle_no_debuggee()?;
         let dbge = self.debuggee.as_ref().unwrap();
 
         crate::get_reg(dbge.pid, r)
     }
 
     pub fn set_reg(&self, r: Register, v: u64) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         let dbge = self.debuggee.as_ref().unwrap();
         crate::set_reg(dbge.pid, r, v)?;
         Ok(Feedback::Ok)
     }
 
     pub fn get_stack(&self) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         let dbge = self.debuggee.as_ref().unwrap();
 
         let stack = dbge.get_stack()?;
@@ -683,7 +721,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn get_process_map(&self) -> Result<Feedback> {
-        self.err_if_no_debuggee()?;
+        if let Some(status) = self.check_debuggee_status()? {
+            return Ok(Feedback::Exit(status));
+        }
+
         let dbge = self.debuggee.as_ref().unwrap();
 
         let pm = dbge.get_process_map()?;
@@ -696,6 +737,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         executable_path: impl AsRef<Path>,
         arguments: &[CString],
     ) -> Result<Feedback> {
+        if self.debuggee.is_some() {
+            return Err(DebuggerError::AlreadyRunning);
+        }
+
         // NOTE: the lifetimes of the raw object data have given us many problems. It would be
         // possible to read the object data out in the main function and passing it to the
         // constructor of Debugger, but that would mean that we cannot debug a different program in
@@ -721,5 +766,37 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         self.launch_debuggee(exe, arguments)?;
 
         Ok(Feedback::Ok)
+    }
+
+    // Add this new method
+    pub fn check_debuggee_status(&self) -> Result<Option<i32>> {
+        self.handle_no_debuggee()?;
+        match waitpid(
+            self.debuggee.as_ref().unwrap().pid,
+            Some(WaitPidFlag::WNOHANG),
+        ) {
+            Ok(WaitStatus::Exited(_, exit_code)) => {
+                info!("Debuggee exited with status: {}", exit_code);
+                Ok(Some(exit_code))
+            }
+            Ok(WaitStatus::Signaled(_, signal, _)) => {
+                info!("Debuggee terminated by signal: {}", signal);
+                Ok(Some(-1)) // Or some other conventional value for signal termination
+            }
+            Ok(WaitStatus::StillAlive) => {
+                trace!("Debuggee still running");
+                Ok(None)
+            }
+            Ok(other_status) => {
+                debug!("Debuggee in other wait status: {:?}", other_status);
+                Ok(None)
+            }
+            Err(nix::Error::ECHILD) => {
+                // No child processes
+                info!("No debuggee process found");
+                Err(DebuggerError::NoDebugee)
+            }
+            Err(e) => Err(e.into()),
+        }
     }
 }

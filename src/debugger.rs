@@ -179,6 +179,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         Status::ReadVariable(va) => self.read_variable(va),
                         Status::WriteVariable(va, val) => self.write_variable(va, val),
                         Status::GetStack => self.get_stack(),
+                        Status::ProcMap => self.get_process_map(),
                     },
                 }
             }
@@ -677,5 +678,14 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
         let stack = dbge.get_stack()?;
         Ok(Feedback::Stack(stack))
+    }
+
+    pub fn get_process_map(&self) -> Result<Feedback> {
+        self.err_if_no_debuggee()?;
+        let dbge = self.debuggee.as_ref().unwrap();
+
+        let pm = dbge.get_process_map()?;
+
+        Ok(Feedback::ProcessMap(pm))
     }
 }

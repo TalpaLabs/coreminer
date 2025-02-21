@@ -131,6 +131,8 @@ impl DebuggerUI for CliUi {
                 return Ok(Status::Infos);
             } else if string_matches(&self.buf_preparsed[0], &["stack"]) {
                 return Ok(Status::GetStack);
+            } else if string_matches(&self.buf_preparsed[0], &["pm"]) {
+                return Ok(Status::ProcMap);
             } else if string_matches(&self.buf_preparsed[0], &["rmem"]) {
                 if self.buf_preparsed.len() < 2 {
                     error!("rmem ADDR");

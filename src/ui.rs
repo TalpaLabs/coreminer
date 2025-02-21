@@ -24,6 +24,7 @@ pub enum Status {
     ReadVariable(String),
     WriteVariable(String, usize),
     GetStack,
+    ProcMap,
 }
 
 pub trait DebuggerUI {

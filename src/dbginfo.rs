@@ -256,3 +256,119 @@ fn dbg_large_option<T>(o: Option<T>) -> &'static str {
         None => "None",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_encoding() -> gimli::Encoding {
+        gimli::Encoding {
+            format: gimli::Format::Dwarf32,
+            version: 4,
+            address_size: 8,
+        }
+    }
+
+    #[test]
+    fn test_owned_symbol_basic() {
+        let encoding = test_encoding();
+        let sym = OwnedSymbol::new(42, SymbolKind::Function, &[], encoding);
+
+        assert_eq!(sym.offset(), 42);
+        assert_eq!(sym.kind(), SymbolKind::Function);
+        assert_eq!(sym.name(), None);
+        assert_eq!(sym.children().len(), 0);
+        assert_eq!(sym.encoding(), encoding);
+    }
+
+    #[test]
+    fn test_owned_symbol_setters() {
+        let mut sym = OwnedSymbol::new(0, SymbolKind::Variable, &[], test_encoding());
+
+        sym.set_name(Some("test_var".to_string()));
+        sym.set_datatype(Some(123));
+        sym.set_byte_size(Some(4));
+        sym.set_low_addr(Some(Addr::from(0x1000usize)));
+        sym.set_high_addr(Some(Addr::from(0x1100usize)));
+
+        assert_eq!(sym.name(), Some("test_var"));
+        assert_eq!(sym.datatype(), Some(123));
+        assert_eq!(sym.byte_size(), Some(4));
+        assert_eq!(sym.low_addr(), Some(Addr::from(0x1000usize)));
+        assert_eq!(sym.high_addr(), Some(Addr::from(0x1100usize)));
+    }
+
+    // Test SymbolKind conversion from DwTag
+    #[test]
+    fn test_symbol_kind_from_dwtag() {
+        assert_eq!(
+            SymbolKind::try_from(gimli::DW_TAG_subprogram).unwrap(),
+            SymbolKind::Function
+        );
+        assert_eq!(
+            SymbolKind::try_from(gimli::DW_TAG_variable).unwrap(),
+            SymbolKind::Variable
+        );
+        assert_eq!(
+            SymbolKind::try_from(gimli::DW_TAG_base_type).unwrap(),
+            SymbolKind::BaseType
+        );
+        assert_eq!(
+            SymbolKind::try_from(gimli::DW_TAG_formal_parameter).unwrap(),
+            SymbolKind::Parameter
+        );
+        // Test blocks are grouped correctly
+        assert_eq!(
+            SymbolKind::try_from(gimli::DW_TAG_try_block).unwrap(),
+            SymbolKind::Block
+        );
+        assert_eq!(
+            SymbolKind::try_from(gimli::DW_TAG_lexical_block).unwrap(),
+            SymbolKind::Block
+        );
+        // Test unknown tag becomes Other
+        assert_eq!(
+            SymbolKind::try_from(gimli::DW_TAG_array_type).unwrap(),
+            SymbolKind::Other
+        );
+    }
+
+    #[test]
+    fn test_search_through_symbols() {
+        let encoding = test_encoding();
+        let child1 = OwnedSymbol::new(1, SymbolKind::Variable, &[], encoding);
+        let child2 = {
+            let mut sym = OwnedSymbol::new(2, SymbolKind::Function, &[], encoding);
+            sym.set_name(Some("target".to_string()));
+            sym
+        };
+        let parent = OwnedSymbol::new(0, SymbolKind::Function, &[child1, child2], encoding);
+
+        // Search for symbol by name
+        let results = search_through_symbols(&[parent.clone()], |s| s.name() == Some("target"));
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].name(), Some("target"));
+
+        // Search by kind
+        let results =
+            search_through_symbols(&[parent.clone()], |s| s.kind() == SymbolKind::Variable);
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].offset(), 1);
+    }
+
+    #[test]
+    fn test_symbol_tree() {
+        let encoding = test_encoding();
+        let child = {
+            let mut sym = OwnedSymbol::new(1, SymbolKind::Variable, &[], encoding);
+            sym.set_name(Some("child".to_string()));
+            sym
+        };
+        let mut parent = OwnedSymbol::new(0, SymbolKind::Function, &[], encoding);
+        parent.set_name(Some("parent".to_string()));
+        parent.set_children(vec![child]);
+
+        assert_eq!(parent.children().len(), 1);
+        assert_eq!(parent.children()[0].name(), Some("child"));
+    }
+}

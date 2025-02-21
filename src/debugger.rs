@@ -433,37 +433,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             }
             if operator.0.trim() == "call" {
                 self.single_step()?;
-
-                let rip: Addr = self.get_current_addr()?;
-                let disassembly: Disassembly =
-                    self.debuggee.as_ref().unwrap().disassemble(rip, 8)?;
-
-                let mut normal_prolog = true;
-                // NOTE: the magic numbers are the machine code for the normal prologue
-                // 55                      push            rbp
-                // 48 89 e5                mov             rbp,rsp
-                // 48 83 ec 10             sub             rsp,10 ; 10 is flexible (stack size)
-                if disassembly.inner().len() != 3 {
-                    normal_prolog = false;
-                }
-                if normal_prolog && disassembly.inner()[0].1 != [0x55] {
-                    normal_prolog = false;
-                }
-                if normal_prolog && disassembly.inner()[1].1 != [0x48, 0x89, 0xe5] {
-                    normal_prolog = false;
-                }
-                if normal_prolog && disassembly.inner()[2].1.starts_with(&[0x48, 0x89, 0xec]) {
-                    normal_prolog = false;
-                }
-
-                if normal_prolog {
-                    self.single_step()?;
-                    self.single_step()?;
-                    self.single_step()?;
-                } else {
-                    warn!("weird prolog, not stepping to the end of the prolog:\n{disassembly}")
-                }
-
                 break;
             } else {
                 self.single_step()?; // PERF: this is very inefficient :/ maybe remove the autostepper

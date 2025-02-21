@@ -85,11 +85,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         loop {
             match self.wait(&[])? {
                 WaitStatus::Exited(_, exit_code) => {
-                    info!("Debuggee exited with status: {}", exit_code);
                     return Ok(Feedback::Exit(exit_code));
                 }
                 WaitStatus::Signaled(_, signal, _) => {
-                    info!("Debuggee terminated by signal: {}", signal);
+                    debug!("Debuggee terminated by signal: {}", signal);
                     return Ok(Feedback::Exit(-1));
                 }
                 _ => {
@@ -182,15 +181,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             }
             .into();
 
-            // Check if any OS error is due to process exit
-            if let Feedback::Error(DebuggerError::Os(ref err)) = feedback {
-                if *err == nix::errno::Errno::ESRCH {
-                    if let Ok(Some(status)) = self.check_debuggee_status() {
-                        feedback = Feedback::Exit(status);
-                    }
-                }
-            }
-
             // Clean up if process exited
             if let Feedback::Exit(_) = feedback {
                 self.debuggee = None;
@@ -204,8 +194,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
         ptrace::cont(dbge.pid, sig)?;
 
-        self.wait_signal()?; // wait until the debuggee is stopped again!!!
-        Ok(Feedback::Ok)
+        self.wait_signal() // wait until the debuggee is stopped again!!!
     }
 
     pub fn dump_regs(&self) -> Result<Feedback> {
@@ -700,42 +689,5 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         self.launch_debuggee(exe, arguments)?;
 
         Ok(Feedback::Ok)
-    }
-
-    pub fn check_debuggee_status(&self) -> Result<Option<i32>> {
-        // If we have no debuggee, we definitely can't get its status
-        if self.debuggee.is_none() {
-            return Ok(None);
-        }
-
-        match waitpid(
-            self.debuggee.as_ref().unwrap().pid,
-            Some(WaitPidFlag::WNOHANG),
-        ) {
-            Ok(WaitStatus::Exited(_, exit_code)) => {
-                info!("Debuggee exited with status: {}", exit_code);
-                Ok(Some(exit_code))
-            }
-            Ok(WaitStatus::Signaled(_, signal, _)) => {
-                info!("Debuggee terminated by signal: {}", signal);
-                Ok(Some(-1)) // Or some other conventional value for signal termination
-            }
-            Ok(WaitStatus::StillAlive) => {
-                trace!("Debuggee still running");
-                Ok(None)
-            }
-            Ok(other_status) => {
-                debug!("Debuggee in other wait status: {:?}", other_status);
-                Ok(None)
-            }
-            Err(nix::Error::ECHILD) => {
-                // ECHILD means there's no child process - but this could be either because:
-                // 1. We never had a child process (handled by the check at the start)
-                // 2. The child process exited and we already collected its status
-                // In case 2, we should treat this as "no current debuggee" rather than an error
-                Ok(None)
-            }
-            Err(e) => Err(e.into()),
-        }
     }
 }

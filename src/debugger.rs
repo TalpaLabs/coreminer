@@ -339,10 +339,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn go_back_step_over_bp(&mut self) -> Result<bool> {
-        // This function is hell with the borrow checker.
-        // You can only have a single mutable refence OR n immutable references
-        // Thus, you cannot simply `let bp = ...` at the start and later use things like
-        // `self.atomic_single_step`
         let maybe_bp_addr: Addr = self.get_current_addr()? - 1;
         trace!("Checkinf if {maybe_bp_addr} had a breakpoint");
 

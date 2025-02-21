@@ -177,3 +177,91 @@ impl Debuggee {
         Ok(value)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_variable_value_sizing() {
+        let v = VariableValue::Numeric(gimli::Value::U8(42));
+        assert_eq!(v.byte_size(), 1);
+        assert_eq!(v.to_u64(), 42);
+
+        let v = VariableValue::Numeric(gimli::Value::I8(42));
+        assert_eq!(v.byte_size(), 1);
+        assert_eq!(v.to_u64(), 42);
+
+        let v = VariableValue::Numeric(gimli::Value::U16(42));
+        assert_eq!(v.byte_size(), 2);
+        assert_eq!(v.to_u64(), 42);
+
+        let v = VariableValue::Numeric(gimli::Value::I16(42));
+        assert_eq!(v.byte_size(), 2);
+        assert_eq!(v.to_u64(), 42);
+
+        let v = VariableValue::Numeric(gimli::Value::U32(42));
+        assert_eq!(v.byte_size(), 4);
+        assert_eq!(v.to_u64(), 42);
+
+        let v = VariableValue::Numeric(gimli::Value::I32(42));
+        assert_eq!(v.byte_size(), 4);
+        assert_eq!(v.to_u64(), 42);
+
+        let v = VariableValue::Numeric(gimli::Value::U64(42));
+        assert_eq!(v.byte_size(), 8);
+        assert_eq!(v.to_u64(), 42);
+
+        let v = VariableValue::Numeric(gimli::Value::I64(42));
+        assert_eq!(v.byte_size(), 8);
+        assert_eq!(v.to_u64(), 42);
+
+        let v = VariableValue::Numeric(gimli::Value::F32(42.19));
+        assert_eq!(v.byte_size(), 4);
+
+        let v = VariableValue::Numeric(gimli::Value::F64(42.19));
+        assert_eq!(v.byte_size(), 8);
+
+        let v = VariableValue::Other(19);
+        assert_eq!(v.byte_size(), 8);
+        assert_eq!(v.to_u64(), 19);
+
+        let v = VariableValue::Bytes(vec![0x19, 19, 19]);
+        assert_eq!(v.byte_size(), 3);
+        assert_eq!(v.to_u64(), 1250073);
+    }
+
+    #[test]
+    fn test_resize_bytes() {
+        let v = VariableValue::Other(42);
+        let bytes = v.resize_to_bytes(4);
+        assert_eq!(bytes.len(), 4);
+        assert_eq!(bytes, vec![42, 0, 0, 0]);
+
+        let bytes = v.resize_to_bytes(8);
+        assert_eq!(bytes.len(), 8);
+        assert_eq!(bytes, vec![42, 0, 0, 0, 0, 0, 0, 0]);
+
+        let bytes = v.resize_to_bytes(1);
+        assert_eq!(bytes.len(), 1);
+        assert_eq!(bytes, vec![42]);
+    }
+
+    #[test]
+    fn test_signed_integer_to_bytes() {
+        let v: i8 = 19;
+        let b = v.to_ne_bytes();
+        assert_eq!(b.len(), 1);
+        assert_eq!(b, [19]);
+
+        let v: i32 = 19;
+        let b = v.to_ne_bytes();
+        assert_eq!(b.len(), 4);
+        assert_eq!(b, [19, 0, 0, 0]);
+
+        let v: i32 = -19;
+        let b = v.to_ne_bytes();
+        assert_eq!(b.len(), 4);
+        assert_eq!(b, [237, 255, 255, 255]);
+    }
+}

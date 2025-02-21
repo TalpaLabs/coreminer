@@ -58,15 +58,13 @@ impl VariableValue {
         }
     }
 
-    fn resize_to_bytes(&self, byte_size: usize) -> Vec<u8> {
-        if byte_size > WORD_BYTES {
+    fn resize_to_bytes(&self, target_size: usize) -> Vec<u8> {
+        if target_size > WORD_BYTES {
             panic!("requested byte size was larger than a word")
         }
 
         let mut data = self.to_u64().to_ne_bytes().to_vec();
-        while data.len() < byte_size {
-            data.push(0);
-        }
+        data.truncate(target_size);
         data
     }
 }
@@ -74,6 +72,11 @@ impl VariableValue {
 impl From<usize> for VariableValue {
     fn from(value: usize) -> Self {
         VariableValue::Numeric(gimli::Value::Generic(value as u64))
+    }
+}
+impl From<gimli::Value> for VariableValue {
+    fn from(value: gimli::Value) -> Self {
+        Self::Numeric(value)
     }
 }
 
@@ -88,73 +91,67 @@ impl Debuggee {
         }))
     }
 
+    fn check_sym_variable_ok(&self, sym: &OwnedSymbol) -> Result<()> {
+        match sym.kind() {
+            SymbolKind::Variable | SymbolKind::Parameter => (),
+            _ => return Err(DebuggerError::WrongSymbolKind(sym.kind())),
+        }
+        if sym.datatype().is_none() {
+            return Err(DebuggerError::VariableSymbolNoType);
+        }
+        if sym.location().is_none() {
+            return Err(DebuggerError::SymbolHasNoLocation);
+        }
+        Ok(())
+    }
+
     pub fn var_write(
         &self,
         sym: &OwnedSymbol,
         frame_info: &FrameInfo,
         value: VariableValue,
     ) -> Result<()> {
-        match sym.kind() {
-            SymbolKind::Variable | SymbolKind::Parameter => (),
-            _ => return Err(DebuggerError::WrongSymbolKind(sym.kind())),
-        }
-        if sym.datatype().is_none() {
-            return Err(DebuggerError::VariableSymbolNoType);
-        }
-        if sym.location().is_none() {
-            return Err(DebuggerError::SymbolHasNoLocation);
-        }
-
+        self.check_sym_variable_ok(sym)?;
         let datatype = match self.get_type_for_symbol(sym)? {
             Some(d) => d,
             None => return Err(DebuggerError::NoDatatypeFound),
         };
 
-        if datatype.byte_size().is_none() {
-            panic!("datatype found but it had no byte_size?")
-        }
-
         let loc_attr = sym.location().unwrap();
         let location = self.parse_location(loc_attr, frame_info, sym.encoding())?;
-        trace!("doing location match for writing variable");
 
         match location {
             gimli::Location::Address { address } => {
-                let value_raw = value.resize_to_bytes(datatype.byte_size().unwrap());
+                let byte_size = if let Some(bs) = datatype.byte_size() {
+                    bs
+                } else {
+                    panic!("datatype found but it had no byte_size?")
+                };
+                let value_raw = value.resize_to_bytes(byte_size);
                 let addr: Addr = address.into();
                 trace!("writing to {addr}");
                 let written = mem_write(&value_raw, self.pid, addr)?;
                 assert_eq!(written, value.byte_size());
             }
             gimli::Location::Register { register } => {
-                trace!("setting register");
                 set_reg(self.pid, register.try_into()?, value.to_u64())?
             }
             other => unimplemented!(
                 "writing to variable with gimli location of type {other:?} is not implemented"
             ),
         }
-        trace!("done writing the variable");
 
         Ok(())
     }
 
     pub fn var_read(&self, sym: &OwnedSymbol, frame_info: &FrameInfo) -> Result<VariableValue> {
-        match sym.kind() {
-            SymbolKind::Variable | SymbolKind::Parameter => (),
-            _ => return Err(DebuggerError::WrongSymbolKind(sym.kind())),
-        }
-        if sym.datatype().is_none() {
-            return Err(DebuggerError::VariableSymbolNoType);
-        }
-        if sym.location().is_none() {
-            return Err(DebuggerError::SymbolHasNoLocation);
-        }
-        let loc_attr = sym.location().unwrap();
+        self.check_sym_variable_ok(sym)?;
         let datatype = match self.get_type_for_symbol(sym)? {
             Some(d) => d,
             None => return Err(DebuggerError::NoDatatypeFound),
         };
+
+        let loc_attr = sym.location().unwrap();
         let location = self.parse_location(loc_attr, frame_info, sym.encoding())?;
 
         let value = match location {
@@ -178,11 +175,5 @@ impl Debuggee {
         };
 
         Ok(value)
-    }
-}
-
-impl From<gimli::Value> for VariableValue {
-    fn from(value: gimli::Value) -> Self {
-        Self::Numeric(value)
     }
 }

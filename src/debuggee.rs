@@ -84,77 +84,22 @@ impl Debuggee {
     ) -> Result<OwnedSymbol> {
         let base_addr = Self::get_base_addr_by_pid(pid)?;
 
-        #[allow(clippy::single_match)]
-        match entry.tag() {
-            gimli::DW_TAG_subprogram => {
-                let low = Self::parse_addr_low(dwarf, unit, entry.attr(DW_AT_low_pc)?, base_addr)?;
-                let high = Self::parse_addr_high(entry.attr(DW_AT_high_pc)?, low)?;
-                let name = Self::parse_string(dwarf, unit, entry.attr(DW_AT_name)?)?;
-                let kind = SymbolKind::try_from(entry.tag())?;
-                let frame_base: Option<Attribute<GimliReaderThing>> =
-                    entry.attr(DW_AT_frame_base)?;
+        let name = Self::parse_string(dwarf, unit, entry.attr(DW_AT_name)?)?;
+        let kind = SymbolKind::try_from(entry.tag())?;
+        let low = Self::parse_addr_low(dwarf, unit, entry.attr(DW_AT_low_pc)?, base_addr)?;
+        let high = Self::parse_addr_high(entry.attr(DW_AT_high_pc)?, low)?;
+        let datatype: Option<usize> = Self::parse_datatype(entry.attr(DW_AT_type)?)?;
+        let location: Option<Attribute<GimliReaderThing>> = entry.attr(DW_AT_location)?;
+        let frame_base: Option<Attribute<GimliReaderThing>> = entry.attr(DW_AT_frame_base)?;
 
-                let mut sym = OwnedSymbol::new(entry.offset().0, kind, &[], unit.encoding());
-                sym.set_low_addr(low);
-                sym.set_high_addr(high);
-                sym.set_name(name);
-                sym.set_frame_base(frame_base);
-                Ok(sym)
-            }
-            gimli::DW_TAG_compile_unit => {
-                let low = Self::parse_addr_low(dwarf, unit, entry.attr(DW_AT_low_pc)?, base_addr)?;
-                let high = Self::parse_addr_high(entry.attr(DW_AT_high_pc)?, low)?;
-                let name = Self::parse_string(dwarf, unit, entry.attr(DW_AT_name)?)?;
-                let kind = SymbolKind::try_from(entry.tag())?;
-
-                let mut sym = OwnedSymbol::new(entry.offset().0, kind, &[], unit.encoding());
-                sym.set_low_addr(low);
-                sym.set_high_addr(high);
-                sym.set_name(name);
-                Ok(sym)
-            }
-            gimli::DW_TAG_base_type => {
-                let name = Self::parse_string(dwarf, unit, entry.attr(DW_AT_name)?)?;
-                let kind = SymbolKind::try_from(entry.tag())?;
-                let byte_size = Self::parse_udata(entry.attr(DW_AT_byte_size)?)?;
-
-                let mut sym = OwnedSymbol::new(entry.offset().0, kind, &[], unit.encoding());
-                sym.set_name(name);
-                sym.set_byte_size(byte_size);
-                Ok(sym)
-            }
-            gimli::DW_TAG_variable => {
-                let name = Self::parse_string(dwarf, unit, entry.attr(DW_AT_name)?)?;
-                let datatype: Option<usize> = Self::parse_datatype(entry.attr(DW_AT_type)?)?;
-                let kind = SymbolKind::try_from(entry.tag())?;
-                let location: Option<Attribute<GimliReaderThing>> = entry.attr(DW_AT_location)?;
-
-                let mut sym = OwnedSymbol::new(entry.offset().0, kind, &[], unit.encoding());
-                sym.set_name(name);
-                sym.set_location(location);
-                sym.set_datatype(datatype);
-                Ok(sym)
-            }
-            _ => {
-                let name = Self::parse_string(dwarf, unit, entry.attr(DW_AT_name)?)?;
-                let kind = SymbolKind::try_from(entry.tag())?;
-                let low = Self::parse_addr_low(dwarf, unit, entry.attr(DW_AT_low_pc)?, base_addr)?;
-                let high = Self::parse_addr_high(entry.attr(DW_AT_high_pc)?, low)?;
-                let datatype: Option<usize> = Self::parse_datatype(entry.attr(DW_AT_type)?)?;
-                let location: Option<Attribute<GimliReaderThing>> = entry.attr(DW_AT_location)?;
-                let frame_base: Option<Attribute<GimliReaderThing>> =
-                    entry.attr(DW_AT_frame_base)?;
-
-                let mut sym = OwnedSymbol::new(entry.offset().0, kind, &[], unit.encoding());
-                sym.set_name(name);
-                sym.set_location(location);
-                sym.set_datatype(datatype);
-                sym.set_low_addr(low);
-                sym.set_high_addr(high);
-                sym.set_frame_base(frame_base);
-                Ok(sym)
-            }
-        }
+        let mut sym = OwnedSymbol::new(entry.offset().0, kind, &[], unit.encoding());
+        sym.set_name(name);
+        sym.set_location(location);
+        sym.set_datatype(datatype);
+        sym.set_low_addr(low);
+        sym.set_high_addr(high);
+        sym.set_frame_base(frame_base);
+        Ok(sym)
     }
 
     // RETURNS ALL SYMBOLS!

@@ -133,3 +133,23 @@ impl std::fmt::Debug for Addr {
         write!(f, "{:#018x}", self.0)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_addr_arithmetic() {
+        let a = Addr::from(100usize);
+        let b = Addr::from(50usize);
+        assert_eq!((a + b).usize(), 150);
+        assert_eq!((a - b).usize(), 50);
+    }
+
+    #[test]
+    fn test_addr_conversions() {
+        let a = Addr::from(0x1234usize);
+        assert_eq!(a.u64(), 0x1234u64);
+        assert_eq!(format!("{}", a), "0x0000000000001234");
+    }
+}

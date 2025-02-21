@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::fmt::Display;
 
 use gimli::{
-    Attribute, DW_AT_byte_size, DW_AT_frame_base, DW_AT_high_pc, DW_AT_location, DW_AT_low_pc,
-    DW_AT_name, DW_AT_type, Unit,
+    Attribute, DW_AT_frame_base, DW_AT_high_pc, DW_AT_location, DW_AT_low_pc, DW_AT_name,
+    DW_AT_type, Unit,
 };
 use nix::sys::ptrace;
 use nix::unistd::Pid;

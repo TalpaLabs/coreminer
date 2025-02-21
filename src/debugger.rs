@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::fmt::Display;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use iced_x86::FormatterTextKind;
 use nix::sys::ptrace;
@@ -23,26 +23,24 @@ use crate::variable::{VariableExpression, VariableValue};
 use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 
 pub struct Debugger<'executable, UI: DebuggerUI> {
-    pub(crate) executable_path: PathBuf,
     pub(crate) debuggee: Option<Debuggee<'executable>>,
     pub(crate) ui: UI,
+    stored_obj_data: Option<object::File<'executable>>,
+    stored_obj_data_raw: Vec<u8>,
 }
 
 impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
-    pub fn build(executable_path: impl AsRef<Path>, ui: UI) -> Result<Self> {
+    pub fn build(ui: UI) -> Result<Self> {
         Ok(Debugger {
             debuggee: None,
             ui,
-            executable_path: executable_path.as_ref().to_owned(),
+            stored_obj_data: None,
+            stored_obj_data_raw: Vec::new(),
         })
     }
 
-    pub fn launch_debuggee(
-        &mut self,
-        args: &[CString],
-        executable_obj_data: object::File<'executable>,
-    ) -> Result<()> {
-        let path: &Path = self.executable_path.as_ref();
+    fn launch_debuggee(&mut self, path: impl AsRef<Path>, args: &[CString]) -> Result<()> {
+        let path: &Path = path.as_ref();
         if !path.exists() {
             let err = DebuggerError::ExecutableDoesNotExist(path.to_string_lossy().to_string());
             error!("{err}");
@@ -53,6 +51,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             error!("{err}");
             return Err(err);
         }
+
+        let executable_obj_data: object::File<'_> = self.stored_obj_data.take().unwrap();
 
         let dbginfo: CMDebugInfo = CMDebugInfo::build(executable_obj_data)?;
 
@@ -69,7 +69,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                     Ok(())
                 }
                 nix::unistd::ForkResult::Child => {
-                    info!("starting the debuggee process");
                     let cpath = CString::new(path.to_string_lossy().to_string().as_str())?;
                     ptrace::traceme()
                         .inspect_err(|e| eprintln!("error while doing traceme: {e}"))?;
@@ -138,17 +137,19 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn run_debugger(&mut self) -> Result<()> {
-        self.wait(&[])?; // wait until the debuggee is stopped
+        if let Some(dbge) = self.debuggee.as_ref() {
+            self.wait(&[])?; // wait until the debuggee is stopped
+            let fun =
+                dbge.get_function_by_addr(Addr::from_relative(dbge.get_base_addr()?, 0x1140))?;
+            debug!("function at 0x1140: {fun:#?}");
+            let root_syms = dbge.symbols();
+            debug!("root symbols:\n{root_syms:#?}");
 
-        self.err_if_no_debuggee()?;
-        let dbge = self.debuggee.as_ref().unwrap();
-        let fun = dbge.get_function_by_addr(Addr::from_relative(dbge.get_base_addr()?, 0x1140))?;
-        debug!("function at 0x1140: {fun:#?}");
-        let root_syms = dbge.symbols();
-        debug!("root symbols:\n{root_syms:#?}");
-
-        info!("PID: {}", dbge.pid);
-        info!("base addr: {}", dbge.get_base_addr()?);
+            info!("PID: {}", dbge.pid);
+            info!("base addr: {}", dbge.get_base_addr()?);
+        } else {
+            info!("debuggee not yet launched")
+        }
 
         let mut feedback: Feedback = Feedback::Ok;
         loop {
@@ -180,6 +181,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         Status::WriteVariable(va, val) => self.write_variable(va, val),
                         Status::GetStack => self.get_stack(),
                         Status::ProcMap => self.get_process_map(),
+                        Status::Run(exe, args) => self.run(&exe, &args),
                     },
                 }
             }
@@ -687,5 +689,37 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         let pm = dbge.get_process_map()?;
 
         Ok(Feedback::ProcessMap(pm))
+    }
+
+    pub fn run(
+        &mut self,
+        executable_path: impl AsRef<Path>,
+        arguments: &[CString],
+    ) -> Result<Feedback> {
+        // NOTE: the lifetimes of the raw object data have given us many problems. It would be
+        // possible to read the object data out in the main function and passing it to the
+        // constructor of Debugger, but that would mean that we cannot debug a different program in
+        // the same session.
+        let exe: &Path = executable_path.as_ref();
+
+        // First, read the file data
+        self.stored_obj_data_raw = std::fs::read(exe)?;
+
+        // Create a new scope to handle the borrow checker
+        {
+            // Create a reference to the raw data that matches the 'executable lifetime
+            let raw_data: &'executable [u8] = unsafe {
+                std::mem::transmute::<&[u8], &'executable [u8]>(&self.stored_obj_data_raw)
+            };
+
+            // Parse the object file
+            let obj_data = object::File::parse(raw_data)?;
+            self.stored_obj_data = Some(obj_data);
+        }
+
+        // Now launch the debuggee
+        self.launch_debuggee(exe, arguments)?;
+
+        Ok(Feedback::Ok)
     }
 }

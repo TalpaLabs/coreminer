@@ -1,3 +1,6 @@
+use std::ffi::CString;
+use std::path::PathBuf;
+
 use crate::errors::Result;
 use crate::feedback::Feedback;
 use crate::{Addr, Register, Word};
@@ -25,6 +28,7 @@ pub enum Status {
     WriteVariable(String, usize),
     GetStack,
     ProcMap,
+    Run(PathBuf, Vec<CString>),
 }
 
 pub trait DebuggerUI {

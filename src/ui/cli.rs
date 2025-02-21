@@ -1,3 +1,5 @@
+use std::ffi::CString;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use dialoguer::BasicHistory;
@@ -117,6 +119,25 @@ impl DebuggerUI for CliUi {
                 let symbol_name: String = self.buf_preparsed[1].to_string();
                 let value: usize = get_number(&self.buf_preparsed[2])? as usize;
                 return Ok(Status::WriteVariable(symbol_name, value));
+            } else if string_matches(&self.buf_preparsed[0], &["run"]) {
+                if self.buf_preparsed.len() < 2 {
+                    error!("run PATH {{ARGS}}");
+                    continue;
+                }
+                let path: PathBuf = PathBuf::from_str(self.buf_preparsed[1].as_str())
+                    .expect("bad format for a path");
+                let mut args: Vec<CString> = Vec::new();
+
+                args.push(CString::new(self.buf_preparsed[0].clone())?);
+                args.extend(
+                    self.buf_preparsed
+                        .iter()
+                        .skip(2)
+                        .map(|s| CString::new(s.clone()).unwrap())
+                        .collect::<Vec<_>>(),
+                );
+
+                return Ok(Status::Run(path, args));
             } else if string_matches(&self.buf_preparsed[0], &["bt"]) {
                 return Ok(Status::Backtrace);
             } else if string_matches(&self.buf_preparsed[0], &["so"]) {

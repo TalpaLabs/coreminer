@@ -23,6 +23,7 @@ pub enum Feedback {
     Variable(VariableValue),
     Stack(crate::stack::Stack),
     ProcessMap(Vec<proc_maps::MapRange>),
+    Exit(i16),
 }
 
 impl Display for Feedback {
@@ -40,6 +41,7 @@ impl Display for Feedback {
             Feedback::Variable(t) => write!(f, "Variable: {t:#?}")?,
             Feedback::Stack(t) => write!(f, "Stack:\n{t}")?,
             Feedback::ProcessMap(pm) => write!(f, "Process Map:\n{pm:#x?}")?,
+            Feedback::Exit(code) => write!(f, "Debugee exited with code {code}")?,
         }
 
         Ok(())

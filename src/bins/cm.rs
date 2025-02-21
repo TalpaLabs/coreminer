@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use coreminer::debugger::Debugger;
 use coreminer::errors::DebuggerError;
 use coreminer::ui::cli::CliUi;
@@ -11,23 +9,20 @@ use tracing::debug;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// The Program to launch as debuggee
-    #[clap(short, long)]
-    run: PathBuf,
+    /*
+     * this example does not actually need extra arguments, all configured in the run_debugger
+     * function interactively
+     */
 }
 
 fn main() -> Result<(), DebuggerError> {
     setup_logger();
     debug!("set up the logger");
 
-    let args = Args::parse();
+    let _args = Args::parse();
 
-    let debuggee_args = Vec::new();
     let ui = CliUi::build()?;
-    let mut debug: Debugger<CliUi> = Debugger::build(&args.run, ui)?;
-    let obj_data_raw = std::fs::read(&args.run)?;
-    let obj_data = debug.parse_exec_data(&obj_data_raw)?;
-    debug.launch_debuggee(&debuggee_args, obj_data)?;
+    let mut debug: Debugger<CliUi> = Debugger::build(ui)?;
     debug.run_debugger()?;
     debug.cleanup()?;
 

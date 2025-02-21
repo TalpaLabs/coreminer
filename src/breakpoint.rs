@@ -76,7 +76,7 @@ impl Drop for Breakpoint {
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_for_stupidity_of_devs() {
+    fn test_minus_one_has_this_representaiton() {
         assert_eq!(
             &(-1i64).to_le_bytes(),
             &[0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8, 0xffu8,]

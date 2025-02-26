@@ -37,14 +37,35 @@ impl CliUi {
         trace!("preparsed: {:?}", self.buf_preparsed);
         Ok(())
     }
-}
 
-// Für alle values die wir brauchen
-//  1. abfragen von basis infos
-//  2. coreminer macht was mit der abfrage
-//  3. process wird wieder mit dem passenden feedback gecalled
-//  4. infos updaten
-// 5. ERST JETZT UI
+    fn get_number(&self, index: usize) -> Option<u64> {
+        if index >= self.buf_preparsed.len() {
+            return None;
+        }
+
+        let mut raw = self.buf_preparsed[index].clone();
+        if raw.starts_with("0x") {
+            raw = raw.strip_prefix("0x").unwrap().to_string();
+        }
+        trace!("raw number: {raw}");
+
+        match u64::from_str_radix(&raw, 16) {
+            Ok(val) => Some(val),
+            Err(e) => {
+                warn!("Failed to parse number '{}': {}", raw, e);
+                None
+            }
+        }
+    }
+
+    fn ensure_args(&self, cmd: &str, expected: usize) -> bool {
+        if self.buf_preparsed.len() < expected + 1 {
+            error!("{} requires {} argument(s)", cmd, expected);
+            return false;
+        }
+        true
+    }
+}
 
 impl DebuggerUI for CliUi {
     fn process(&mut self, feedback: Feedback) -> crate::errors::Result<Status> {
@@ -64,134 +85,249 @@ impl DebuggerUI for CliUi {
         }
 
         loop {
-            self.get_input()?;
+            if let Err(e) = self.get_input() {
+                error!("Error getting input: {}", e);
+                continue;
+            }
 
-            if string_matches(&self.buf_preparsed[0], &["cont", "c"]) {
+            if self.buf_preparsed.is_empty() {
+                continue;
+            }
+
+            let cmd = &self.buf_preparsed[0].to_lowercase();
+
+            if string_matches(cmd, &["cont", "c"]) {
                 return Ok(Status::Continue);
-            } else if string_matches(&self.buf_preparsed[0], &["delbreak", "dbp"]) {
-                let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
-                let addr: Addr = Addr::from(addr_raw);
-                return Ok(Status::DelBreakpoint(addr));
-            } else if string_matches(&self.buf_preparsed[0], &["d", "dis"]) {
-                if self.buf_preparsed.len() < 3 {
-                    error!("d ADDR LEN [--literal]");
+            } else if string_matches(cmd, &["delbreak", "dbp"]) {
+                if !self.ensure_args("delbreak", 1) {
                     continue;
                 }
-                let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
+
+                match self.get_number(1) {
+                    Some(addr_raw) => {
+                        let addr: Addr = Addr::from(addr_raw as usize);
+                        return Ok(Status::DelBreakpoint(addr));
+                    }
+                    None => {
+                        error!("Invalid address for delbreak");
+                        continue;
+                    }
+                }
+            } else if string_matches(cmd, &["d", "dis"]) {
+                if !self.ensure_args("disassemble", 2) {
+                    continue;
+                }
+
+                let addr_raw = match self.get_number(1) {
+                    Some(val) => val as usize,
+                    None => {
+                        error!("Invalid address for disassemble");
+                        continue;
+                    }
+                };
+
+                let len = match self.get_number(2) {
+                    Some(val) => val as usize,
+                    None => {
+                        error!("Invalid length for disassemble");
+                        continue;
+                    }
+                };
+
                 let addr = Addr::from(addr_raw);
-                let len: usize = get_number(&self.buf_preparsed[2])? as usize;
                 let literal = self.buf_preparsed.get(3).is_some_and(|s| s == "--literal");
                 return Ok(Status::DisassembleAt(addr, len, literal));
-            } else if string_matches(&self.buf_preparsed[0], &["break", "bp"]) {
-                let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
-                let addr: Addr = Addr::from(addr_raw);
-                return Ok(Status::SetBreakpoint(addr));
-            } else if string_matches(&self.buf_preparsed[0], &["set"]) {
-                if self.buf_preparsed.len() < 3 {
-                    error!("sym CMD ARG");
+            } else if string_matches(cmd, &["break", "bp"]) {
+                if !self.ensure_args("break", 1) {
                     continue;
                 }
+
+                match self.get_number(1) {
+                    Some(addr_raw) => {
+                        let addr: Addr = Addr::from(addr_raw as usize);
+                        return Ok(Status::SetBreakpoint(addr));
+                    }
+                    None => {
+                        error!("Invalid address for breakpoint");
+                        continue;
+                    }
+                }
+            } else if string_matches(cmd, &["set"]) {
+                if !self.ensure_args("set", 2) {
+                    continue;
+                }
+
                 if self.buf_preparsed[1] == "stepper" {
-                    let steps: usize = get_number(&self.buf_preparsed[2])? as usize;
-                    self.stepper = steps;
+                    match self.get_number(2) {
+                        Some(steps) => {
+                            self.stepper = steps as usize;
+                        }
+                        None => {
+                            error!("Invalid number for stepper");
+                        }
+                    }
                 } else {
-                    error!("unknown subcommand")
+                    error!("Unknown subcommand for set")
                 }
                 continue;
-            } else if string_matches(&self.buf_preparsed[0], &["sym", "gsym"]) {
-                if self.buf_preparsed.len() < 2 {
-                    error!("sym SYMBOL");
+            } else if string_matches(cmd, &["sym", "gsym"]) {
+                if !self.ensure_args("symbol", 1) {
                     continue;
                 }
+
                 let symbol_name: String = self.buf_preparsed[1].to_string();
                 return Ok(Status::GetSymbolsByName(symbol_name));
-            } else if string_matches(&self.buf_preparsed[0], &["var"]) {
-                if self.buf_preparsed.len() < 2 {
-                    error!("var SYMBOL");
+            } else if string_matches(cmd, &["var"]) {
+                if !self.ensure_args("var", 1) {
                     continue;
                 }
+
                 let symbol_name: String = self.buf_preparsed[1].to_string();
                 return Ok(Status::ReadVariable(symbol_name));
-            } else if string_matches(&self.buf_preparsed[0], &["vars"]) {
-                if self.buf_preparsed.len() < 3 {
-                    error!("vars SYMBOL VALUE");
+            } else if string_matches(cmd, &["vars"]) {
+                if !self.ensure_args("vars", 2) {
                     continue;
                 }
+
                 let symbol_name: String = self.buf_preparsed[1].to_string();
-                let value: usize = get_number(&self.buf_preparsed[2])? as usize;
-                return Ok(Status::WriteVariable(symbol_name, value));
-            } else if string_matches(&self.buf_preparsed[0], &["run"]) {
-                if self.buf_preparsed.len() < 2 {
-                    error!("run PATH {{ARGS}}");
+
+                match self.get_number(2) {
+                    Some(value) => {
+                        return Ok(Status::WriteVariable(symbol_name, value as usize));
+                    }
+                    None => {
+                        error!("Invalid value for variable");
+                        continue;
+                    }
+                }
+            } else if string_matches(cmd, &["run"]) {
+                if !self.ensure_args("run", 1) {
                     continue;
                 }
-                let path: PathBuf = PathBuf::from_str(self.buf_preparsed[1].as_str())
-                    .expect("bad format for a path");
-                let mut args: Vec<CString> = Vec::new();
 
-                args.push(CString::new(self.buf_preparsed[0].clone())?);
-                args.extend(
-                    self.buf_preparsed
-                        .iter()
-                        .skip(2)
-                        .map(|s| CString::new(s.clone()).unwrap())
-                        .collect::<Vec<_>>(),
-                );
+                match PathBuf::from_str(self.buf_preparsed[1].as_str()) {
+                    Ok(path) => {
+                        let mut args: Vec<CString> = Vec::new();
 
-                return Ok(Status::Run(path, args));
-            } else if string_matches(&self.buf_preparsed[0], &["bt"]) {
+                        // Try to create CStrings for the arguments
+                        args.push(match CString::new(self.buf_preparsed[0].clone()) {
+                            Ok(cs) => cs,
+                            Err(e) => {
+                                error!("Error creating CString: {}", e);
+                                continue;
+                            }
+                        });
+
+                        for arg in self.buf_preparsed.iter().skip(2) {
+                            match CString::new(arg.clone()) {
+                                Ok(cs) => args.push(cs),
+                                Err(e) => {
+                                    error!("Error creating CString for argument '{}': {}", arg, e);
+                                    break;
+                                }
+                            }
+                        }
+
+                        return Ok(Status::Run(path, args));
+                    }
+                    Err(e) => {
+                        error!("Invalid path: {}", e);
+                    }
+                }
+                continue;
+            } else if string_matches(cmd, &["bt"]) {
                 return Ok(Status::Backtrace);
-            } else if string_matches(&self.buf_preparsed[0], &["so"]) {
+            } else if string_matches(cmd, &["so"]) {
                 return Ok(Status::StepOut);
-            } else if string_matches(&self.buf_preparsed[0], &["su", "sov"]) {
+            } else if string_matches(cmd, &["su", "sov"]) {
                 return Ok(Status::StepOver);
-            } else if string_matches(&self.buf_preparsed[0], &["si"]) {
+            } else if string_matches(cmd, &["si"]) {
                 return Ok(Status::StepInto);
-            } else if string_matches(&self.buf_preparsed[0], &["s", "step"]) {
+            } else if string_matches(cmd, &["s", "step"]) {
                 return Ok(Status::StepSingle);
-            } else if string_matches(&self.buf_preparsed[0], &["info"]) {
+            } else if string_matches(cmd, &["info"]) {
                 return Ok(Status::Infos);
-            } else if string_matches(&self.buf_preparsed[0], &["stack"]) {
+            } else if string_matches(cmd, &["stack"]) {
                 return Ok(Status::GetStack);
-            } else if string_matches(&self.buf_preparsed[0], &["pm"]) {
+            } else if string_matches(cmd, &["pm"]) {
                 return Ok(Status::ProcMap);
-            } else if string_matches(&self.buf_preparsed[0], &["rmem"]) {
-                if self.buf_preparsed.len() < 2 {
-                    error!("rmem ADDR");
+            } else if string_matches(cmd, &["rmem"]) {
+                if !self.ensure_args("rmem", 1) {
                     continue;
                 }
-                let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
-                let addr: Addr = Addr::from(addr_raw);
-                return Ok(Status::ReadMem(addr));
-            } else if string_matches(&self.buf_preparsed[0], &["wmem"]) {
-                if self.buf_preparsed.len() < 3 {
-                    error!("wmem ADDR VAL");
+
+                match self.get_number(1) {
+                    Some(addr_raw) => {
+                        let addr: Addr = Addr::from(addr_raw as usize);
+                        return Ok(Status::ReadMem(addr));
+                    }
+                    None => {
+                        error!("Invalid address for rmem");
+                        continue;
+                    }
+                }
+            } else if string_matches(cmd, &["wmem"]) {
+                if !self.ensure_args("wmem", 2) {
                     continue;
                 }
-                let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
+
+                let addr_raw = match self.get_number(1) {
+                    Some(val) => val as usize,
+                    None => {
+                        error!("Invalid address for wmem");
+                        continue;
+                    }
+                };
+
+                let value = match self.get_number(2) {
+                    Some(val) => val as i64,
+                    None => {
+                        error!("Invalid value for wmem");
+                        continue;
+                    }
+                };
+
                 let addr: Addr = Addr::from(addr_raw);
-                let value: i64 = get_number(&self.buf_preparsed[2])? as i64;
                 return Ok(Status::WriteMem(addr, value));
-            } else if string_matches(&self.buf_preparsed[0], &["regs"]) {
-                if self.buf_preparsed.len() < 2 {
-                    error!("need to give a subcommand");
+            } else if string_matches(cmd, &["regs"]) {
+                if !self.ensure_args("regs", 1) {
                     continue;
                 }
+
                 if self.buf_preparsed[1] == "get" {
                     return Ok(Status::DumpRegisters);
                 } else if self.buf_preparsed[1] == "set" {
-                    if self.buf_preparsed.len() != 4 {
-                        error!("regs set REGISTER VALUE");
+                    if !self.ensure_args("regs set", 3) {
                         continue;
                     }
-                    let register = Register::from_str(&self.buf_preparsed[2])?;
-                    let value: u64 = get_number(&self.buf_preparsed[3])?;
-                    return Ok(Status::SetRegister(register, value));
+
+                    match Register::from_str(&self.buf_preparsed[2]) {
+                        Ok(register) => match self.get_number(3) {
+                            Some(value) => {
+                                return Ok(Status::SetRegister(register, value));
+                            }
+                            None => {
+                                error!("Invalid value for register");
+                                continue;
+                            }
+                        },
+                        Err(e) => {
+                            error!("Invalid register: {}", e);
+                            continue;
+                        }
+                    }
                 } else {
-                    error!("only set and get is possible")
+                    error!("Only 'set' and 'get' are valid subcommands for 'regs'");
                 }
+                continue;
+            } else if string_matches(cmd, &["help", "h", "?"]) {
+                show_help();
+                continue;
+            } else if string_matches(cmd, &["q", "quit", "exit"]) {
+                return Ok(Status::DebuggerQuit);
             } else {
-                error!("bad input, use help if we already bothered to implement that");
+                error!("Unknown command: {}", cmd);
+                info!("Type 'help' for available commands");
             }
         }
     }
@@ -201,26 +337,66 @@ fn string_matches(cmd: &str, prefixes: &[&str]) -> bool {
     prefixes.iter().any(|a| cmd == *a)
 }
 
-fn get_number(mut raw: &str) -> Result<u64> {
-    if raw.starts_with("0x") {
-        raw = raw.strip_prefix("0x").unwrap();
-    }
-    trace!("raw number: {raw}");
-
-    Ok(u64::from_str_radix(raw, 16)?)
+fn show_help() {
+    println!("\nCoreminer Debugger Help:\n");
+    println!("  run PATH [ARGS]                    - Run program at PATH with optional arguments");
+    println!("  c, cont                            - Continue execution");
+    println!("  s, step                            - Step one instruction");
+    println!("  si                                 - Step into function call");
+    println!("  su, sov                            - Step over function call");
+    println!("  so                                 - Step out of current function");
+    println!("  bp, break ADDR                     - Set breakpoint at address (hex)");
+    println!("  dbp, delbreak ADDR                 - Delete breakpoint at address (hex)");
+    println!("  d, dis ADDR LEN [--literal]        - Disassemble LEN bytes at ADDR");
+    println!("  bt                                 - Show backtrace");
+    println!("  stack                              - Show stack");
+    println!("  info                               - Show debugger info");
+    println!("  pm                                 - Show process memory map");
+    println!("  regs get                           - Show register values");
+    println!("  regs set REG VAL                   - Set register REG to value VAL (hex)");
+    println!("  rmem ADDR                          - Read memory at address (hex)");
+    println!("  wmem ADDR VAL                      - Write value to memory at address (hex)");
+    println!("  sym, gsym NAME                     - Look up symbol by name");
+    println!("  var NAME                           - Read variable value");
+    println!("  vars NAME VAL                      - Write value to variable");
+    println!("  set stepper N                      - Set stepper to auto-step N times");
+    println!("  q, quit, exit                      - Exit the debugger");
+    println!("  help, h, ?                         - Show this help");
+    println!("\nAddresses and values should be in hexadecimal (with or without 0x prefix)");
 }
 
 #[cfg(test)]
 mod test {
-    use crate::ui::cli::get_number;
+    use super::*;
+
+    #[test]
+    fn test_string_matches() {
+        assert!(string_matches("help", &["help", "h", "?"]));
+        assert!(string_matches("h", &["help", "h", "?"]));
+        assert!(!string_matches("hello", &["help", "h", "?"]));
+    }
 
     #[test]
     fn test_get_number() {
-        assert_eq!(0x19u64, get_number("19").unwrap());
-        assert_eq!(0x19u64, get_number("0x19").unwrap());
-        assert_eq!(0x19u64, get_number("0x00019").unwrap());
-        assert_eq!(0x19u64, get_number("00019").unwrap());
-        assert_eq!(0x19usize, get_number("19").unwrap() as usize);
-        assert_eq!(0x9usize, get_number("9").unwrap() as usize);
+        let mut ui = CliUi {
+            buf: String::new(),
+            buf_preparsed: vec![
+                "cmd".to_string(),
+                "19".to_string(),
+                "0x19".to_string(),
+                "00019".to_string(),
+            ],
+            history: BasicHistory::new(),
+            stepper: 0,
+        };
+
+        assert_eq!(ui.get_number(1), Some(0x19));
+        assert_eq!(ui.get_number(2), Some(0x19));
+        assert_eq!(ui.get_number(3), Some(0x19));
+        assert_eq!(ui.get_number(4), None); // Out of bounds
+
+        // Test with invalid input
+        ui.buf_preparsed = vec!["cmd".to_string(), "ZZ".to_string()];
+        assert_eq!(ui.get_number(1), None);
     }
 }

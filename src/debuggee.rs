@@ -213,7 +213,7 @@ impl Debuggee {
             .into_iter()
             .collect();
         if v.len() > 1 {
-            panic!("multiple or no items for that offset")
+            return Err(crate::errors::DebuggerError::MultipleDwarfEntries);
         }
         if v.is_empty() {
             Ok(None)

@@ -67,4 +67,6 @@ pub enum DebuggerError {
     NoFrameInfo,
     #[error("Tried to run a program while one was already running")]
     AlreadyRunning,
+    #[error("Found multiple DWARF entries for an operation that was supposed to only find one")]
+    MultipleDwarfEntries,
 }

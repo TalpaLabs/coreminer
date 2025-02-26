@@ -1,3 +1,45 @@
+//! # Coreminer
+//!
+//! A debugger library and executable for Rust that provides low-level debugging capabilities,
+//! particularly useful for debugging programs that may be resistant to standard
+//! debugging approaches.
+//!
+//! ## Core Features
+//!
+//! - **Memory Access**: Read and write process memory
+//! - **Register Control**: Access and modify CPU registers
+//! - **Breakpoint Management**: Set, enable, disable, and remove breakpoints
+//! - **Execution Control**: Step by step execution, continue execution, step in/out/over functions
+//! - **Symbol Resolution**: Parse and use DWARF debug information for symbol lookup
+//! - **Variable Inspection**: Access application variables through debug information
+//! - **Stack Analysis**: Generate and inspect backtraces and stack frames
+//! - **Disassembly**: Disassemble machine code to human readable assembly
+//!
+//! ## Architecture
+//!
+//! Coreminer is built around several core components:
+//!
+//! - **Debuggee**: Represents the debugged process, managed through ptrace
+//! - **Debugger**: Coordinates the debugging session and UI communication
+//! - **DWARF Parser**: Extracts debug information for symbol and variable resolution
+//! - **Breakpoint Management**: Handles instruction replacement for breakpoints
+//! - **UI Interface**: Accepts commands and provides feedback
+//!
+//! ## Example Usage
+//!
+//! ```rust,no_run
+//! use coreminer::debugger::Debugger;
+//! use coreminer::ui::cli::CliUi;
+//!
+//! fn main() -> Result<(), coreminer::errors::DebuggerError> {
+//!     let ui = CliUi::build()?;
+//!     let mut debugger = Debugger::build(ui)?;
+//!     debugger.run_debugger()?;
+//!     debugger.cleanup()?;
+//!     Ok(())
+//! }
+//! ```
+
 use std::array::TryFromSliceError;
 use std::io::{Read, Seek, Write};
 use std::str::FromStr;
@@ -25,9 +67,12 @@ pub mod ui;
 pub mod unwind;
 pub mod variable;
 
+/// Type alias for machine word-sized integers, used for register values and memory contents
 pub type Word = i64;
+/// Number of bytes in a [Word] (8 bytes on a 64-bit system)
 pub const WORD_BYTES: usize = Word::BITS as usize / 8;
 
+/// CPU register names for x86_64 architecture
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum Register {
@@ -100,7 +145,8 @@ impl FromStr for Register {
 
 impl TryFrom<gimli::Register> for Register {
     type Error = DebuggerError;
-    /// Gimli has the indexes of the registers, but we have it as an enumerator.
+    /// Converts a DWARF register number to the corresponding Register enum value.
+    ///
     /// The DWARF Register Number Mapping is defined in the amd64 ABI here:
     /// <https://refspecs.linuxbase.org/elf/x86_64-abi-0.99.pdf#figure.3.36>
     fn try_from(value: gimli::Register) -> Result<Self> {
@@ -145,14 +191,17 @@ impl TryFrom<gimli::Register> for Register {
     }
 }
 
+/// Writes a word-sized value to the specified process memory address
 pub(crate) fn mem_write_word(pid: Pid, addr: Addr, value: Word) -> Result<()> {
     Ok(ptrace::write(pid, addr.into(), value)?)
 }
 
+/// Reads a word-sized value from the specified process memory address
 pub(crate) fn mem_read_word(pid: Pid, addr: Addr) -> Result<Word> {
     Ok(ptrace::read(pid, addr.into())?)
 }
 
+/// Reads a slice of bytes from process memory at the specified address
 pub(crate) fn mem_read(data_raw: &mut [u8], pid: Pid, addr: Addr) -> Result<usize> {
     let mut file = std::fs::File::options()
         .read(true)
@@ -164,6 +213,7 @@ pub(crate) fn mem_read(data_raw: &mut [u8], pid: Pid, addr: Addr) -> Result<usiz
     Ok(len)
 }
 
+/// Writes a slice of bytes to process memory at the specified address
 pub(crate) fn mem_write(data_raw: &[u8], pid: Pid, addr: Addr) -> Result<usize> {
     let mut file = std::fs::File::options()
         .read(false)
@@ -175,6 +225,7 @@ pub(crate) fn mem_write(data_raw: &[u8], pid: Pid, addr: Addr) -> Result<usize> 
     Ok(len)
 }
 
+/// Gets the value of a specified register for the target process
 pub fn get_reg(pid: Pid, r: Register) -> Result<u64> {
     let regs = ptrace::getregs(pid)?;
 
@@ -211,6 +262,7 @@ pub fn get_reg(pid: Pid, r: Register) -> Result<u64> {
     Ok(v)
 }
 
+/// Sets the value of a specified register for the target process
 pub fn set_reg(pid: Pid, r: Register, v: u64) -> Result<()> {
     let mut regs = ptrace::getregs(pid)?;
 
@@ -249,7 +301,7 @@ pub fn set_reg(pid: Pid, r: Register, v: u64) -> Result<()> {
     Ok(())
 }
 
-/// Try to downcast any array of [u8] into an array of constant size
+/// Try to pad or truncate an array of [u8] into an array of constant size
 pub(crate) fn fill_to_const_arr<const N: usize>(
     data: &[u8],
 ) -> std::result::Result<[u8; N], TryFromSliceError> {
@@ -261,6 +313,7 @@ pub(crate) fn fill_to_const_arr<const N: usize>(
     Ok(arr)
 }
 
+/// Converts a byte slice to a [u64] value with proper padding
 pub(crate) fn bytes_to_u64(bytes: &[u8]) -> std::result::Result<u64, TryFromSliceError> {
     const U64_BYTES: usize = u64::BITS as usize / 8;
     let data: [u8; U64_BYTES] = fill_to_const_arr(bytes)?;

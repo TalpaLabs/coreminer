@@ -52,21 +52,28 @@ The binary will be available at `./target/release/cm`.
 
 ### Launch Coreminer
 
+You can launch Coreminer with an optional executable path as a default target:
+
 ```bash
+# Launch Coreminer without a target
 cm
+
+# Launch Coreminer with a default executable
+cm ./target/debug/dummy
 ```
 
-## The testing UI
+## Command-Line Interface
 
-Coreminer ships with a very simple CLI, that was used for implementing and
-testing. A JSON based interface for other programs to implement a fancier
-interface is planned.
+Coreminer provides a simple CLI that allows you to interact with the debugger. The interface supports command history for ease of use.
 
-Once in the coreminer CLI, you can use:
+Once in the Coreminer CLI, you can use:
 
 ```
 # Run a program with arguments
 run ./target/debug/dummy arg1 arg2
+
+# If launched with a default executable, you can run it with:
+run
 
 # Set a breakpoint at a specific address (hex)
 bp 0x0000563087528176
@@ -134,6 +141,25 @@ var counter
 
 # Write to a variable
 vars counter 42
+```
+
+### Automatic Stepping
+
+```
+# Set up automatic stepping for N steps
+set stepper 10
+```
+
+### Help and Exit
+
+```
+# Show available commands
+help
+
+# Exit the debugger
+q
+quit
+exit
 ```
 
 ## Use Cases

@@ -58,19 +58,8 @@ impl FrameInfo {
     ///
     /// # Examples
     ///
-    /// You could just fill this with any [Addr], but it's more complicated. See [crate::debugger::Debugger::prepare_variable_access].
-    ///
-    /// ```no_run
-    /// use coreminer::dwarf_parse::FrameInfo;
-    /// use coreminer::addr::Addr;
-    ///
-    /// // Create frame info with a frame base at 0x7fffffffe000 and CFA at 0x7fffffffe010
-    /// // You should probably calculate these addresses somehow instead of hardcoding them
-    /// let frame_info = FrameInfo::new(
-    ///     Some(Addr::from(0x7fffffffe000)),
-    ///     Some(Addr::from(0x7fffffffe010))
-    /// );
-    /// ```
+    /// You could just fill this with any [Addr], but it's more complicated.
+    /// See [crate::debugger::Debugger::prepare_variable_access].
     pub(crate) fn new(
         frame_base: Option<Addr>,
         canonical_frame_address: Option<Addr>,

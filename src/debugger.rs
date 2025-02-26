@@ -1,3 +1,28 @@
+//! # Debugger Module
+//!
+//! This module provides the core debugging functionality, coordinating between the user interface and the debugged process.
+//!
+//! The debugger is the central orchestrator in coreminer that:
+//!
+//! 1. **Controls process execution** - Manages starting, stopping, and stepping through the target program
+//! 2. **Handles breakpoints** - Sets, removes, and manages hitting breakpoints during execution
+//! 3. **Provides memory access** - Reads and writes to the target's memory space
+//! 4. **Exposes registers** - Allows inspection and modification of CPU registers
+//! 5. **Interprets debug info** - Uses DWARF debug information to resolve symbols, variables, and source locations
+//! 6. **Manages signals** - Intercepts and processes signals from the target process
+//! 7. **Handles user interaction** - Communicates with the UI to present information and receive commands
+//!
+//! ## Architecture
+//!
+//! The debugger uses a combination of:
+//!
+//! - **ptrace** - For low-level process control and memory access
+//! - **DWARF debug information** - To understand program structure and variables
+//! - **waitpid** - To synchronize with the debugged process's state changes
+//! - **signal handling** - To interpret and respond to exceptions in the target
+//! - **[Debuggee]** - Various methods of the [Debuggee] struct.
+//!
+
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::fmt::Display;
@@ -22,6 +47,86 @@ use crate::ui::{DebuggerUI, Status};
 use crate::variable::{VariableExpression, VariableValue};
 use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 
+/// Manages the debugging session and coordinates between the UI and debuggee
+///
+/// The [`Debugger`] struct is the central component that ties together the user interface and
+/// the debugged process. It holds state for the current debugging session, processes commands
+/// from the UI, and controls the execution of the debuggee.
+///
+/// # Type Parameters
+///
+/// * `'executable` - Lifetime of the executable data
+/// * `UI` - The user interface type, which must implement [`DebuggerUI`]
+///
+/// ## Examples
+///
+/// Basic usage of the debugger:
+///
+/// ```no_run
+/// use coreminer::debugger::Debugger;
+/// use coreminer::ui::cli::CliUi;
+/// use coreminer::errors::Result;
+/// use std::path::Path;
+/// use std::ffi::CString;
+///
+/// fn main() -> Result<()> {
+///     // Create a UI implementation, this may be antthing implementing the DebuggerUI trait
+///     let ui = CliUi::build()?;
+///     
+///     // Build a debugger with the UI
+///     let mut debugger = Debugger::build(ui)?;
+///     
+///     // Run the main interactive debugging loop
+///     debugger.run_debugger()?;
+///     
+///     // Clean up resources
+///     debugger.cleanup()?;
+///     
+///     Ok(())
+/// }
+/// ```
+///
+/// Theoretically, automated usage of the debugger functions is also possible:
+///
+/// ```no_run
+/// use coreminer::debugger::Debugger;
+/// use coreminer::ui::cli::CliUi;
+/// use coreminer::errors::Result;
+/// use coreminer::feedback::Feedback;
+/// use std::path::Path;
+/// use std::ffi::CString;
+///
+/// fn main() -> Result<()> {
+///     // Create a UI implementation, this may be antthing implementing the DebuggerUI trait
+///     // for automated, this is not really needed.
+///     let ui = CliUi::build()?;
+///     
+///     // Build a debugger with the UI
+///     let mut debugger = Debugger::build(ui)?;
+///     
+///     // Launch a program for debugging
+///     let program_path = Path::new("./target/debug/my_program");
+///     let args = vec![CString::new("my_program").unwrap(), CString::new("my_program").unwrap()];
+///     // returns control shortly after forking off the debuggee as child process
+///     debugger.run(program_path, &args)?;
+///
+///     if let Feedback::Registers(regs) = debugger.dump_regs()? {
+///         println!("rip is here: {}", regs.rip)
+///     } else {
+///         eprintln!("something did not work!")
+///     }
+///
+///     // Step over a single instruction
+///     debugger.single_step()?;
+///
+///     // more automated debugging...
+///
+///     // Clean up resources
+///     debugger.cleanup()?;
+///     
+///     Ok(())
+/// }
+/// ```
 pub struct Debugger<'executable, UI: DebuggerUI> {
     pub(crate) debuggee: Option<Debuggee>,
     pub(crate) ui: UI,
@@ -30,6 +135,26 @@ pub struct Debugger<'executable, UI: DebuggerUI> {
 }
 
 impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
+    /// Creates a new debugger with the provided user interface
+    ///
+    /// # Parameters
+    ///
+    /// * `ui` - The user interface implementation
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Debugger)` - A new debugger instance
+    /// * `Err(DebuggerError)` - If the debugger could not be created
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use coreminer::debugger::Debugger;
+    /// use coreminer::ui::cli::CliUi;
+    ///
+    /// let ui = CliUi::build().unwrap();
+    /// let debugger = Debugger::build(ui).unwrap();
+    /// ```
     pub fn build(ui: UI) -> Result<Self> {
         Ok(Debugger {
             debuggee: None,
@@ -39,6 +164,29 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         })
     }
 
+    /// Launches a new debuggee process
+    ///
+    /// This function loads an executable, parses its debug information, forks a new process,
+    /// and sets up ptrace for debugging.
+    ///
+    /// # Parameters
+    ///
+    /// * `path` - Path to the executable
+    /// * `args` - Command-line arguments for the executable
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If the debuggee was successfully launched
+    /// * `Err(DebuggerError)` - If the debuggee could not be launched
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The executable does not exist
+    /// - The executable is not a valid file
+    /// - Debug information cannot be parsed
+    /// - The process cannot be forked
+    /// - ptrace cannot be initialized
     fn launch_debuggee(&mut self, path: impl AsRef<Path>, args: &[CString]) -> Result<()> {
         let path: &Path = path.as_ref();
         if !path.exists() {
@@ -79,6 +227,41 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         }
     }
 
+    /// Waits for a signal from the debuggee and processes it
+    ///
+    /// This function waits for signals from the debuggee, such as breakpoints, signals, or exits,
+    /// and processes them appropriately.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback)` - The result of the wait operation
+    /// * `Err(DebuggerError)` - If there was an error during waiting
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - waitpid fails
+    /// - Signal information cannot be retrieved
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::feedback::Feedback;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let mut debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// match debugger.wait_signal() {
+    ///     Ok(Feedback::Exit(code)) => println!("Process exited with code {}", code),
+    ///     Ok(Feedback::Ok) => println!("Process stopped"),
+    ///     Ok(other) => println!("something else happened: {other}"), // impossible
+    ///     Err(e) => eprintln!("Error: {}", e),
+    /// }
+    /// ```
     pub fn wait_signal(&self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
@@ -119,6 +302,46 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         }
     }
 
+    /// Low-level wait for a change in the debuggee's state
+    ///
+    /// # Parameters
+    ///
+    /// * `options` - Options to pass to waitpid, usually `&[]`
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(WaitStatus)` - The status of the wait operation
+    /// * `Err(DebuggerError)` - If there was an error during waiting
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - waitpid fails
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use nix::sys::wait::{WaitPidFlag, WaitStatus};
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Wait for any status change without options
+    /// let status = debugger.wait(&[]).unwrap();
+    ///
+    /// // Wait with the WNOHANG option (non-blocking)
+    /// let status = debugger.wait(&[WaitPidFlag::WNOHANG]).unwrap();
+    ///
+    /// match status {
+    ///     WaitStatus::Exited(_, code) => println!("Process exited with code {}", code),
+    ///     WaitStatus::Stopped(_, signal) => println!("Process stopped by signal {:?}", signal),
+    ///     _ => println!("Other status change"),
+    /// }
+    /// ```
     pub fn wait(&self, options: &[WaitPidFlag]) -> Result<WaitStatus> {
         let mut flags = WaitPidFlag::empty();
         for f in options {
@@ -130,6 +353,37 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         )?)
     }
 
+    /// Runs the main debugger loop
+    ///
+    /// This function forms the main execution loop of the debugger, processing
+    /// UI commands and executing corresponding debugger actions until the user
+    /// requests to quit.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If the debugger loop completed successfully
+    /// * `Err(DebuggerError)` - If there was an error during execution
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee already exists but can't be waited for.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// #
+    /// let ui = CliUi::build().unwrap();
+    /// let mut debugger = Debugger::build(ui).unwrap();
+    ///
+    /// // Start the main debugger loop
+    /// // This will run until the ui exits
+    /// debugger.run_debugger().unwrap();
+    ///
+    /// debugger.cleanup().unwrap();
+    /// ```
     pub fn run_debugger(&mut self) -> Result<()> {
         if self.debuggee.as_ref().is_some() {
             self.wait_signal()?; // wait until the debuggee is stopped
@@ -182,6 +436,43 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(())
     }
 
+    /// Continues execution of the debuggee, optionally delivering a signal
+    ///
+    /// This function tells the debuggee to continue execution from its current state.
+    /// If a signal is provided, it will be delivered to the debuggee.
+    ///
+    /// # Parameters
+    ///
+    /// * `sig` - An optional signal to deliver to the debuggee, usually [`None`]
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback)` - The result of the continuation
+    /// * `Err(DebuggerError)` - If there was an error during continuation
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - ptrace's cont operation fails
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use nix::sys::signal::Signal;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let mut debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Continue execution normally
+    /// debugger.cont(None).unwrap();
+    ///
+    /// // Continue execution and deliver a SIGINT signal
+    /// debugger.cont(Some(Signal::SIGINT)).unwrap();
+    /// ```
     pub fn cont(&mut self, sig: Option<Signal>) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
         ptrace::cont(dbge.pid, sig)?;
@@ -189,19 +480,116 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         self.wait_signal() // wait until the debuggee is stopped again!!!
     }
 
+    /// Gets the current registers of the debuggee
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Registers)` - The registers
+    /// * `Err(DebuggerError)` - If there was an error retrieving registers
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - ptrace's getregs operation fails
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::feedback::Feedback;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// if let Ok(Feedback::Registers(regs)) = debugger.dump_regs() {
+    ///     println!("RIP: {:#x}", regs.rip);
+    ///     println!("RSP: {:#x}", regs.rsp);
+    ///     println!("RAX: {:#x}", regs.rax);
+    /// }
+    /// ```
     pub fn dump_regs(&self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
         let regs = ptrace::getregs(dbge.pid)?;
         Ok(Feedback::Registers(regs))
     }
 
-    pub fn cleanup(&self) -> Result<()> {
+    /// Cleans up resources used by the debugger
+    ///
+    /// This function terminates the debuggee if it's still running
+    /// and releases any resources held by the debugger.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If cleanup was successful
+    /// * `Err(DebuggerError)` - If there was an error during cleanup
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The exists but debuggee cannot be killed with [Debuggee::kill]
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let mut debugger = Debugger::build(ui).unwrap();
+    /// #
+    /// // Clean up resources at the end of debugging
+    /// debugger.cleanup().unwrap();
+    /// ```
+    pub fn cleanup(&mut self) -> Result<()> {
         if let Some(dbge) = &self.debuggee {
             dbge.kill()?;
+            self.debuggee = None;
         }
         Ok(())
     }
 
+    /// Sets a breakpoint at the specified address
+    ///
+    /// # Parameters
+    ///
+    /// * `addr` - The address to set the breakpoint at
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the breakpoint was set successfully
+    /// * `Err(DebuggerError)` - If there was an error setting the breakpoint
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - The breakpoint could not be enabled
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::addr::Addr;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let mut debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Set a breakpoint at absolute address 0x1000
+    /// debugger.set_bp(Addr::from(0x1000)).unwrap();
+    ///
+    /// // Set a breakpoint at the program's entry point
+    /// let base = debugger.get_current_addr().unwrap();
+    /// debugger.set_bp(base).unwrap();
+    ///
+    /// // Set a breakpoint at the relative address 0x1000
+    /// let base = debugger.get_current_addr().unwrap();
+    /// debugger.set_bp(base + 0x1000).unwrap();
+    /// ```
     pub fn set_bp(&mut self, addr: Addr) -> Result<Feedback> {
         let dbge = self.debuggee.as_mut().ok_or(DebuggerError::NoDebugee)?;
         let mut bp = Breakpoint::new(dbge.pid, addr);
@@ -211,6 +599,41 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Ok)
     }
 
+    /// Removes a breakpoint at the specified address
+    ///
+    /// # Parameters
+    ///
+    /// * `addr` - The address to remove the breakpoint from
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the breakpoint was removed successfully
+    /// * `Err(DebuggerError)` - If there was an error removing the breakpoint
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - The breakpoint could not be disabled
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::addr::Addr;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let mut debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Remove a breakpoint at address 0x1000
+    /// debugger.del_bp(Addr::from(0x1000)).unwrap();
+    ///
+    /// // Remove a breakpoint at the relative address 0x1000
+    /// let base = debugger.get_current_addr().unwrap();
+    /// debugger.del_bp(base + 0x1000).unwrap();
+    /// ```
     pub fn del_bp(&mut self, addr: Addr) -> Result<Feedback> {
         let dbge = self.debuggee.as_mut().ok_or(DebuggerError::NoDebugee)?;
 
@@ -223,6 +646,18 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Ok)
     }
 
+    /// Performs a single, atomic step of exactly one instruction through the debuggee
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If the step was successful
+    /// * `Err(DebuggerError)` - If there was an error during stepping
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - ptrace's step operation fails
     fn atomic_single_step(&self) -> Result<()> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
@@ -235,6 +670,40 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(())
     }
 
+    /// Steps a single instruction in the debuggee
+    ///
+    /// This function advances execution by a single instruction, taking
+    /// care to handle breakpoints appropriately.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the step was successful
+    /// * `Err(DebuggerError)` - If there was an error during stepping
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - ptrace operations fail
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let mut debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Step through one instruction
+    /// debugger.single_step().unwrap();
+    ///
+    /// // Step through multiple instructions
+    /// for _ in 0..5 {
+    ///     debugger.single_step().unwrap();
+    /// }
+    /// ```
     pub fn single_step(&mut self) -> Result<Feedback> {
         if self.go_back_step_over_bp()? {
             info!("breakpoint before, caught up and continueing with single step")
@@ -255,6 +724,39 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Ok)
     }
 
+    /// Steps out of the current function
+    ///
+    /// This function sets a temporary breakpoint at the return address
+    /// and continues execution until that breakpoint is hit.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the step-out was successful
+    /// * `Err(DebuggerError)` - If there was an error during step-out
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - No valid return address of the current function can be found
+    /// - The current function is main (cannot step out)
+    /// - Could not read or write a [Register].
+    /// - Could not read from memory.
+    /// - Could not set or delete a [Breakpoint].
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let mut debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running and in a function
+    /// #
+    /// // Step out of the current function
+    /// debugger.step_out().unwrap();
+    /// ```
     pub fn step_out(&mut self) -> Result<Feedback> {
         {
             let a = self
@@ -302,6 +804,23 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Ok)
     }
 
+    /// Temporarily disables a breakpoint, steps over it, and then re-enables it
+    ///
+    /// # Parameters
+    ///
+    /// * `here` - The address of the breakpoint
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If the operation was successful
+    /// * `Err(DebuggerError)` - If there was an error
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - Breakpoint operations fail
+    /// - Step operations fail
     fn dse(&mut self, here: Addr) -> Result<()> {
         trace!("disabling the breakpoint");
         self.debuggee
@@ -330,6 +849,23 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(())
     }
 
+    /// Checks if we need to restore an instruction pointer after hitting a breakpoint
+    ///
+    /// When a breakpoint is hit, the instruction pointer is just after the INT3 instruction.
+    /// This function checks if we need to move the instruction pointer back to the breakpoint
+    /// address and execute the original instruction. If so, it does that.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(bool)` - True if the IP was adjusted and a breakpoint was stepped over
+    /// * `Err(DebuggerError)` - If there was an error
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - Register operations fail
+    /// - Breakpoint operations fail
     pub fn go_back_step_over_bp(&mut self) -> Result<bool> {
         let maybe_bp_addr: Addr = self.get_current_addr()? - 1;
         trace!("Checkinf if {maybe_bp_addr} had a breakpoint");
@@ -354,6 +890,51 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         }
     }
 
+    /// Disassembles memory at the specified address
+    ///
+    /// # Parameters
+    ///
+    /// * `addr` - The starting address
+    /// * `len` - The number of bytes to disassemble
+    /// * `literal` - Whether to show literal bytes instead of original code (including breakpoint instructions)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Disassembly)` - The disassembly result
+    /// * `Err(DebuggerError)` - If there was an error during disassembly
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - Memory cannot be read
+    /// - Disassembly fails
+    ///
+    /// # Panics
+    ///
+    /// If a [Breakpoint] is enabled but has no saved data, this will panic.
+    /// If a [Breakpoint] was found before making the [Disassembly], but the same breakpoint does
+    /// not exist after the [Disassembly] was created, this will also panic.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::addr::Addr;
+    /// # use coreminer::feedback::Feedback;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Disassemble 16 bytes at address 0x1000
+    /// if let Ok(Feedback::Disassembly(disasm)) = debugger.disassemble_at(Addr::from(0x1000), 16, false) {
+    ///     for (addr, raw, content, has_bp) in disasm.inner() {
+    ///         println!("{:x}: {} {}", addr, if *has_bp { "*" } else { " " }, content[0].0);
+    ///     }
+    /// }
+    /// ```
     pub fn disassemble_at(&self, addr: Addr, len: usize, literal: bool) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
@@ -362,6 +943,44 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Disassembly(t))
     }
 
+    /// Searches for symbols by name
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - The name to search for
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Symbols)` - The matching symbols
+    /// * `Err(DebuggerError)` - If there was an error during search
+    ///
+    /// Note: If the executable that is being debugged has no DWARF information (was stripped), this will always
+    /// return no symbols.
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debug information is not loaded
+    /// - Symbol information is not available
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::feedback::Feedback;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Find the "main" function
+    /// if let Ok(Feedback::Symbols(symbols)) = debugger.get_symbol_by_name("main") {
+    ///     for symbol in symbols {
+    ///         println!("Found main at: {:?}", symbol.low_addr());
+    ///     }
+    /// }
+    /// ```
     pub fn get_symbol_by_name(&self, name: impl Display) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
@@ -369,6 +988,22 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Symbols(symbols))
     }
 
+    /// Handles a SIGTRAP signal from the debuggee
+    ///
+    /// # Parameters
+    ///
+    /// * `sig` - The signal
+    /// * `siginfo` - The signal information
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If the signal was handled successfully
+    /// * `Err(DebuggerError)` - If there was an error handling the signal
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
     pub fn handle_sigtrap(
         &self,
         sig: nix::sys::signal::Signal,
@@ -387,6 +1022,22 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(())
     }
 
+    /// Handles important signals from the debuggee
+    ///
+    /// # Parameters
+    ///
+    /// * `sig` - The signal
+    /// * `siginfo` - The signal information
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If the signal was handled successfully
+    /// * `Err(DebuggerError)` - If there was an error handling the signal
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
     pub fn handle_important_signal(
         &self,
         sig: Signal,
@@ -396,17 +1047,74 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(())
     }
 
+    /// Handles other signals from the debuggee
+    ///
+    /// # Parameters
+    ///
+    /// * `sig` - The signal
+    /// * `siginfo` - The signal information
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If the signal was handled successfully
+    /// * `Err(DebuggerError)` - If there was an error handling the signal
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
     pub fn handle_other_signal(&self, sig: Signal, siginfo: nix::libc::siginfo_t) -> Result<()> {
         info!("debugee received {}: {}", sig.as_str(), siginfo.si_code);
         Ok(())
     }
 
+    /// Logs information about the debugger state
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the information was logged successfully
+    /// * `Err(DebuggerError)` - If there was an error
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
     fn infos(&self) -> std::result::Result<Feedback, DebuggerError> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
         info!("Breakpoints:\n{:#?}", dbge.breakpoints);
         Ok(Feedback::Ok)
     }
 
+    /// Steps into a function call
+    ///
+    /// This function steps through instructions until a call instruction is found,
+    /// then steps into that function.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the step-into was successful
+    /// * `Err(DebuggerError)` - If there was an error during step-into
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - No call instruction is found
+    /// - Step operations fail
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let mut debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Step into the next function call
+    /// debugger.step_into().unwrap();
+    /// ```
     pub fn step_into(&mut self) -> Result<Feedback> {
         self.go_back_step_over_bp()?;
 
@@ -431,6 +1139,20 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Ok)
     }
 
+    /// Steps over a function call
+    ///
+    /// This function combines step_into and step_out to step over a function call.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the step-over was successful
+    /// * `Err(DebuggerError)` - If there was an error during step-over
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - Step operations fail
     pub fn step_over(&mut self) -> Result<Feedback> {
         self.go_back_step_over_bp()?;
 
@@ -438,6 +1160,37 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         self.step_out()
     }
 
+    /// Gets a backtrace of the current call stack
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Backtrace)` - The backtrace
+    /// * `Err(DebuggerError)` - If there was an error generating the backtrace
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - Stack unwinding fails
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::feedback::Feedback;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Get a backtrace of the call stack
+    /// if let Ok(Feedback::Backtrace(bt)) = debugger.backtrace() {
+    ///     for (i, frame) in bt.frames.iter().enumerate() {
+    ///         println!("#{} {} at {:?}", i, frame.name.as_deref().unwrap_or("??"), frame.addr);
+    ///     }
+    /// }
+    /// ```
     pub fn backtrace(&self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
@@ -446,10 +1199,55 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Backtrace(backtrace))
     }
 
+    /// Gets the current instruction pointer address
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Addr)` - The current address
+    /// * `Err(DebuggerError)` - If there was an error getting the address
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - [Register] read fails
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Get the current instruction pointer
+    /// let curr_addr = debugger.get_current_addr().unwrap();
+    /// println!("Current IP: {}", curr_addr);
+    /// ```
     pub fn get_current_addr(&self) -> Result<Addr> {
         Ok((self.get_reg(Register::rip)?).into())
     }
 
+    /// Prepares for variable access by gathering necessary context
+    ///
+    /// # Parameters
+    ///
+    /// * `expression` - The variable expression to access
+    ///
+    /// # Returns
+    ///
+    /// * `Ok((OwnedSymbol, OwnedSymbol, FrameInfo))` - Function, variable symbols and frame info
+    /// * `Err(DebuggerError)` - If preparation failed
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - The current location is not in a function
+    /// - The variable is not found
+    /// - Frame information cannot be constructed
     fn prepare_variable_access(
         &self,
         expression: &VariableExpression,
@@ -505,6 +1303,40 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok((current_function, var, frame_info))
     }
 
+    /// Reads the value of a variable
+    ///
+    /// # Parameters
+    ///
+    /// * `expression` - The variable name to read
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Variable)` - The variable value
+    /// * `Err(DebuggerError)` - If the variable could not be read
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - The variable is not found
+    /// - The variable cannot be accessed
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::feedback::Feedback;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Read the value of a variable named "count"
+    /// if let Ok(Feedback::Variable(value)) = debugger.read_variable("count".to_string()) {
+    ///     println!("count = {:?}", value);
+    /// }
+    /// ```
     pub fn read_variable(&self, expression: VariableExpression) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
@@ -515,6 +1347,39 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Variable(val))
     }
 
+    /// Writes a value to a variable
+    ///
+    /// # Parameters
+    ///
+    /// * `expression` - The variable name to write to
+    /// * `value` - The value to write
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the write was successful
+    /// * `Err(DebuggerError)` - If the variable could not be written
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - The variable is not found
+    /// - The variable cannot be accessed
+    /// - The value is incompatible with the variable type
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Set the value of a variable named "count" to 42
+    /// debugger.write_variable("count".to_string(), 42).unwrap();
+    /// ```
     pub fn write_variable(
         &self,
         expression: VariableExpression,
@@ -529,6 +1394,41 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Ok)
     }
 
+    /// Reads a single [Word] from memory at the specified address
+    ///
+    /// # Parameters
+    ///
+    /// * `addr` - The address to read from
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Word)` - The value read from memory
+    /// * `Err(DebuggerError)` - If the memory could not be read
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - The memory address is invalid
+    /// - The memory cannot be accessed
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::addr::Addr;
+    /// # use coreminer::feedback::Feedback;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Read a word from memory at address 0x1000
+    /// if let Ok(Feedback::Word(value)) = debugger.read_mem(Addr::from(0x1000)) {
+    ///     println!("Memory at 0x1000: {:#x}", value);
+    /// }
+    /// ```
     pub fn read_mem(&self, addr: Addr) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
@@ -537,6 +1437,39 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Word(w))
     }
 
+    /// Writes a [Word] to memory at the specified address
+    ///
+    /// # Parameters
+    ///
+    /// * `addr` - The address to write to
+    /// * `value` - The value to write
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the write was successful
+    /// * `Err(DebuggerError)` - If the memory could not be written
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - The memory address is invalid
+    /// - The memory cannot be accessed
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::addr::Addr;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Write the value 0x42 to memory at address 0x1000
+    /// debugger.write_mem(Addr::from(0x1000), 0x42).unwrap();
+    /// ```
     pub fn write_mem(&self, addr: Addr, value: Word) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
@@ -545,18 +1478,111 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Ok)
     }
 
+    /// Gets the value of a register
+    ///
+    /// # Parameters
+    ///
+    /// * `r` - The register to get
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(u64)` - The register value
+    /// * `Err(DebuggerError)` - If the register could not be read
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - Register access fails
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::Register;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Get the value of the rax register
+    /// let rax = debugger.get_reg(Register::rax).unwrap();
+    /// println!("RAX: {:#x}", rax);
+    /// ```
     pub fn get_reg(&self, r: Register) -> Result<u64> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
         crate::get_reg(dbge.pid, r)
     }
 
+    /// Sets the value of a register
+    ///
+    /// # Parameters
+    ///
+    /// * `r` - The register to set
+    /// * `v` - The value to set
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the register was set successfully
+    /// * `Err(DebuggerError)` - If the register could not be set
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - Register access fails
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::Register;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Set the value of the rax register to 0x42
+    /// debugger.set_reg(Register::rax, 0x42).unwrap();
+    /// ```
     pub fn set_reg(&self, r: Register, v: u64) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
         crate::set_reg(dbge.pid, r, v)?;
         Ok(Feedback::Ok)
     }
 
+    /// Gets the current stack of the debugged process
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Stack)` - The stack
+    /// * `Err(DebuggerError)` - If the stack could not be retrieved
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - Stack memory cannot be accessed
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::feedback::Feedback;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Get the current stack
+    /// if let Ok(Feedback::Stack(stack)) = debugger.get_stack() {
+    ///     println!("Stack: {}", stack);
+    /// }
+    /// ```
     pub fn get_stack(&self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
@@ -564,6 +1590,37 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Stack(stack))
     }
 
+    /// Gets the process memory map
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::ProcessMap)` - The process memory map
+    /// * `Err(DebuggerError)` - If the memory map could not be retrieved
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running
+    /// - The memory map cannot be accessed
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::feedback::Feedback;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let debugger = Debugger::build(ui).unwrap();
+    /// # // Assume debuggee is already running
+    /// #
+    /// // Get the process memory map
+    /// if let Ok(Feedback::ProcessMap(map)) = debugger.get_process_map() {
+    ///     for region in map {
+    ///         println!("{:?}", region);
+    ///     }
+    /// }
+    /// ```
     pub fn get_process_map(&self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
@@ -572,6 +1629,51 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::ProcessMap(pm))
     }
 
+    /// Runs a program for debugging
+    ///
+    /// This function loads an executable, parses its debug information, and
+    /// launches it under debugger control.
+    ///
+    /// # Parameters
+    ///
+    /// * `executable_path` - Path to the executable
+    /// * `arguments` - Command-line arguments for the executable
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the program was launched successfully
+    /// * `Err(DebuggerError)` - If the program could not be launched
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - A debuggee is already running
+    /// - The executable does not exist
+    /// - The executable is not a valid file
+    /// - Debug information cannot be parsed
+    /// - The process cannot be forked
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use std::path::Path;
+    /// # use std::ffi::CString;
+    /// #
+    /// # let ui = CliUi::build().unwrap();
+    /// # let mut debugger = Debugger::build(ui).unwrap();
+    /// #
+    /// // Run a program with arguments
+    /// let program = Path::new("./target/debug/my_program");
+    /// let args = vec![
+    ///     CString::new("my_program").unwrap(),
+    ///     CString::new("--arg1").unwrap(),
+    ///     CString::new("value1").unwrap()
+    /// ];
+    ///
+    /// debugger.run(program, &args).unwrap();
+    /// ```
     pub fn run(
         &mut self,
         executable_path: impl AsRef<Path>,

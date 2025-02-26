@@ -185,7 +185,7 @@ impl DebuggerUI for CliUi {
                         continue;
                     }
                     let register = Register::from_str(&self.buf_preparsed[2])?;
-                    let value: u64 = get_number(&self.buf_preparsed[1])?;
+                    let value: u64 = get_number(&self.buf_preparsed[3])?;
                     return Ok(Status::SetRegister(register, value));
                 } else {
                     error!("only set and get is possible")

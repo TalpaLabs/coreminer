@@ -2,7 +2,7 @@
 name = "coreminer"
 version = "0.1.0"
 edition = "2021"
-publish = false
+publish = true
 authors = ["Christoph J. Scherr <software@cscherr.de>", "Marco Ludwig"]
 license = "MIT"
 description = "A debugger which can be used to debug programs that do not want to be debugged"

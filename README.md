@@ -5,11 +5,11 @@
         Debug those programs that don't want to be
     </p>
     <br/>
-    <a href="https://github.com/debugger-bs/coreminer/actions">
-        <img src="https://img.shields.io/github/actions/workflow/status/debugger-bs/coreminer/release.yml?label=Release" alt="Release Status"/>
+    <a href="https://github.com/debugger-bs/coreminer/actions/workflows/release.yaml">
+        <img src="https://img.shields.io/github/actions/workflow/status/debugger-bs/coreminer/release.yaml?label=Release" alt="Release Status"/>
     </a>
-    <a href="https://github.com/debugger-bs/coreminer/actions">
-        <img src="https://img.shields.io/github/actions/workflow/status/debugger-bs/coreminer/cargo.yml?label=Rust%20CI" alt="Rust CI"/>
+    <a href="https://github.com/debugger-bs/coreminer/actions/workflows/cargo.yaml">
+        <img src="https://img.shields.io/github/actions/workflow/status/debugger-bs/coreminer/cargo.yaml?label=Rust%20CI" alt="Rust CI"/>
     </a>
     <a href="https://github.com/debugger-bs/coreminer/blob/master/LICENSE">
         <img src="https://img.shields.io/github/license/debugger-bs/coreminer" alt="License"/>

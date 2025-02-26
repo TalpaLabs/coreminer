@@ -1,6 +1,4 @@
-use core::panic;
-
-use gimli::{Attribute, Encoding, Expression, Reader, Unit};
+use gimli::{Encoding, Expression, Reader, Unit};
 use tracing::{trace, warn};
 
 use crate::dbginfo::GimliLocation;
@@ -106,16 +104,6 @@ impl Debuggee {
                 warn!("idk");
                 None
             }
-        } else {
-            None
-        })
-    }
-
-    pub(crate) fn parse_udata(
-        attribute: Option<Attribute<GimliReaderThing>>,
-    ) -> Result<Option<usize>> {
-        Ok(if let Some(a) = attribute {
-            a.udata_value().map(|v| v as usize)
         } else {
             None
         })

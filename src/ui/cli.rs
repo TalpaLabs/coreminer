@@ -1,5 +1,5 @@
 use std::ffi::CString;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use dialoguer::BasicHistory;
@@ -15,15 +15,17 @@ pub struct CliUi {
     buf_preparsed: Vec<String>,
     history: BasicHistory,
     stepper: usize,
+    default_executable: Option<PathBuf>,
 }
 
 impl CliUi {
-    pub fn build() -> Result<Self> {
+    pub fn build(default_executable: Option<&Path>) -> Result<Self> {
         let ui = CliUi {
             buf_preparsed: Vec::new(),
             buf: String::new(),
             history: BasicHistory::new(),
             stepper: 0,
+            default_executable: default_executable.map(|a| a.to_owned()),
         };
         Ok(ui)
     }
@@ -201,6 +203,12 @@ impl DebuggerUI for CliUi {
                     }
                 }
             } else if string_matches(cmd, &["run"]) {
+                if self.buf_preparsed.len() == 1 && self.default_executable.is_some() {
+                    return Ok(Status::Run(
+                        self.default_executable.clone().unwrap(),
+                        Vec::new(),
+                    ));
+                }
                 if !self.ensure_args("run", 1) {
                     continue;
                 }
@@ -388,6 +396,7 @@ mod test {
             ],
             history: BasicHistory::new(),
             stepper: 0,
+            default_executable: None,
         };
 
         assert_eq!(ui.get_number(1), Some(0x19));

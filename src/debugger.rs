@@ -203,7 +203,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn set_bp(&mut self, addr: Addr) -> Result<Feedback> {
-        let dbge = self.debuggee.as_mut().unwrap();
+        let dbge = self.debuggee.as_mut().ok_or(DebuggerError::NoDebugee)?;
         let mut bp = Breakpoint::new(dbge.pid, addr);
         bp.enable()?;
         dbge.breakpoints.insert(addr, bp);
@@ -212,7 +212,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn del_bp(&mut self, addr: Addr) -> Result<Feedback> {
-        let dbge = self.debuggee.as_mut().unwrap();
+        let dbge = self.debuggee.as_mut().ok_or(DebuggerError::NoDebugee)?;
 
         if let Some(_bp) = dbge.breakpoints.get_mut(&addr) {
             dbge.breakpoints.remove(&addr); // gets disabled on dropping

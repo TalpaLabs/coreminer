@@ -1,3 +1,17 @@
+//! # Variable Access Module
+//!
+//! Provides functionality for accessing and manipulating variables in the debugged process.
+//!
+//! This module contains types and methods for reading and writing variables
+//! in the debuggee's memory space, leveraging DWARF debug information to locate
+//! and interpret the variables correctly. It handles the complexities of
+//! different variable storage locations (registers, memory, etc.) and value types.
+//!
+//! Key components:
+//! - [`VariableExpression`]: A type for referring to variables by name
+//! - [`VariableValue`]: An enum representing different forms of variable values
+//! - Methods on the [`Debuggee`](crate::debuggee::Debuggee) for variable access
+
 use tracing::{info, trace};
 
 use crate::dbginfo::{search_through_symbols, OwnedSymbol, SymbolKind};
@@ -6,17 +20,74 @@ use crate::dwarf_parse::FrameInfo;
 use crate::errors::{DebuggerError, Result};
 use crate::{get_reg, mem_read, mem_write, set_reg, Addr, Word, WORD_BYTES};
 
+/// A type alias for variable expressions (typically variable names)
+///
+/// [`VariableExpression`] is used to refer to variables in the debugged program,
+/// typically by their source-level names.
+///
+/// In the future, this might include something like dereferencing, or logic, to filter from
+/// various [OwnedSymbols][OwnedSymbol].
 pub type VariableExpression = String;
 
+/// Represents a variable value in one of several forms
+///
+/// [`VariableValue`] encapsulates the various ways a variable's value might be
+/// represented, such as raw bytes, numeric values, or machine words. This allows
+/// the debugger to work with variables of different types and sizes.
+///
+/// # Examples
+///
+/// ```
+/// use coreminer::variable::VariableValue;
+/// use gimli::Value;
+///
+/// // Create a variable value from raw bytes
+/// let bytes_value = VariableValue::Bytes(vec![0x01, 0x02, 0x03, 0x04]);
+///
+/// // Create a variable value from a machine word
+/// let word_value = VariableValue::Other(0x123456789);
+///
+/// // Create a variable value from a DWARF numeric value
+/// let numeric_value = VariableValue::Numeric(Value::U32(42));
+///
+/// // Convert a variable value to a u64
+/// let value_as_u64 = bytes_value.to_u64();
+/// ```
 #[derive(Debug, Clone)]
 pub enum VariableValue {
+    /// Raw byte representation of a value
     Bytes(Vec<u8>),
+
+    /// Machine word representation of a value
     Other(Word),
+
+    /// DWARF numeric value
     Numeric(gimli::Value),
 }
 
 impl VariableValue {
-    fn byte_size(&self) -> usize {
+    /// Returns the size of the variable value in bytes
+    ///
+    /// # Returns
+    ///
+    /// The size of the variable value in bytes
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use coreminer::variable::VariableValue;
+    /// use gimli::Value;
+    ///
+    /// let bytes_value = VariableValue::Bytes(vec![0x01, 0x02, 0x03, 0x04]);
+    /// assert_eq!(bytes_value.byte_size(), 4);
+    ///
+    /// let word_value = VariableValue::Other(0x123456789);
+    /// assert_eq!(word_value.byte_size(), 8); // Assuming 64-bit (8-byte) words
+    ///
+    /// let numeric_value = VariableValue::Numeric(Value::U32(42));
+    /// assert_eq!(numeric_value.byte_size(), 4);
+    /// ```
+    pub fn byte_size(&self) -> usize {
         match self {
             Self::Bytes(b) => b.len(),
             Self::Other(_w) => WORD_BYTES,
@@ -32,7 +103,32 @@ impl VariableValue {
         }
     }
 
-    fn to_u64(&self) -> u64 {
+    /// Converts the variable value to a [u64]
+    ///
+    /// # Returns
+    ///
+    /// The variable value as a [u64]
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if [self] is a [VariableValue::Bytes] which has more bytes than a [u64] can hold.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use coreminer::variable::VariableValue;
+    /// use gimli::Value;
+    ///
+    /// let bytes_value = VariableValue::Bytes(vec![0x42, 0x00, 0x00, 0x00]);
+    /// assert_eq!(bytes_value.to_u64(), 0x42);
+    ///
+    /// let word_value = VariableValue::Other(0x123456789);
+    /// assert_eq!(word_value.to_u64(), 0x123456789);
+    ///
+    /// let numeric_value = VariableValue::Numeric(Value::U32(42));
+    /// assert_eq!(numeric_value.to_u64(), 42);
+    /// ```
+    pub fn to_u64(&self) -> u64 {
         match self {
             Self::Bytes(b) => {
                 if b.len() > WORD_BYTES {
@@ -58,7 +154,37 @@ impl VariableValue {
         }
     }
 
-    fn resize_to_bytes(&self, target_size: usize) -> Vec<u8> {
+    /// Resizes a value to the specified number of bytes
+    ///
+    /// # Parameters
+    ///
+    /// * `target_size` - The target size in bytes
+    ///
+    /// # Returns
+    ///
+    /// A vector of bytes with the specified size
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if [self] is a [VariableValue::Bytes] which has more bytes than a [u64] can hold.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use coreminer::variable::VariableValue;
+    /// use gimli::Value;
+    ///
+    /// let value = VariableValue::Other(0x123456789);
+    ///
+    /// // Resize to 4 bytes
+    /// let bytes = value.resize_to_bytes(4);
+    /// assert_eq!(bytes, vec![0x89, 0x67, 0x45, 0x23]);
+    ///
+    /// // Resize to 2 bytes
+    /// let bytes = value.resize_to_bytes(2);
+    /// assert_eq!(bytes, vec![0x89, 0x67]);
+    /// ```
+    pub fn resize_to_bytes(&self, target_size: usize) -> Vec<u8> {
         if target_size > WORD_BYTES {
             panic!("requested byte size was larger than a word")
         }
@@ -81,6 +207,21 @@ impl From<gimli::Value> for VariableValue {
 }
 
 impl Debuggee {
+    /// Filters variable expressions to find matching symbols
+    ///
+    /// # Parameters
+    ///
+    /// * `haystack` - The symbols to search through
+    /// * `expression` - The variable expression to match
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Vec<OwnedSymbol>)` - The matching symbols
+    /// * `Err(DebuggerError)` - If filtering failed
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if there are issues with the symbol table.
     pub fn filter_expressions(
         &self,
         haystack: &[OwnedSymbol],
@@ -91,6 +232,25 @@ impl Debuggee {
         }))
     }
 
+    /// Checks if a symbol is a valid variable
+    ///
+    /// # Parameters
+    ///
+    /// * `sym` - The symbol to check
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If the symbol is a valid variable
+    /// * `Err(DebuggerError)` - If the symbol is not a valid variable
+    ///
+    /// # Errors
+    ///
+    /// This function fails if:
+    /// - The symbol is not a variable or parameter
+    /// - The symbol does not have a data type
+    /// - The symbol does not have a location
+    ///
+    /// If it fails, the symbol should not be used for either [Self::var_write] or [Self::var_read].
     fn check_sym_variable_ok(&self, sym: &OwnedSymbol) -> Result<()> {
         match sym.kind() {
             SymbolKind::Variable | SymbolKind::Parameter => (),
@@ -105,6 +265,50 @@ impl Debuggee {
         Ok(())
     }
 
+    /// Writes a value to a variable
+    ///
+    /// Prefer to use the more high level [crate::debugger::Debugger::write_variable].
+    ///
+    /// # Parameters
+    ///
+    /// * `sym` - The symbol representing the variable
+    /// * `frame_info` - Stack frame information
+    /// * `value` - The value to write
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If the write was successful
+    /// * `Err(DebuggerError)` - If the write failed
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The symbol is not a valid variable
+    /// - The variable's location cannot be determined
+    /// - Memory or register access fails
+    /// - The data type of the variable cannot be determined
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use coreminer::debuggee::Debuggee;
+    /// use coreminer::dwarf_parse::FrameInfo;
+    /// use coreminer::addr::Addr;
+    /// use coreminer::variable::VariableValue;
+    ///
+    /// # fn example(debuggee: &Debuggee, sym: &coreminer::dbginfo::OwnedSymbol) -> coreminer::errors::Result<()> {
+    /// // Create frame information
+    /// // Calculate these with the ELF and DWARF information
+    /// let frame_info = FrameInfo::new(
+    ///     Some(Addr::from(0x7fffffffe000usize)),
+    ///     Some(Addr::from(0x7fffffffe010usize))
+    /// );
+    ///
+    /// // Write the value 42 to the variable
+    /// debuggee.var_write(sym, &frame_info, VariableValue::from(42usize))?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn var_write(
         &self,
         sym: &OwnedSymbol,
@@ -144,6 +348,49 @@ impl Debuggee {
         Ok(())
     }
 
+    /// Reads the value of a variable
+    ///
+    /// Prefer to use the more high level [crate::debugger::Debugger::read_variable].
+    ///
+    /// # Parameters
+    ///
+    /// * `sym` - The symbol representing the variable
+    /// * `frame_info` - Stack frame information
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(VariableValue)` - The variable's value
+    /// * `Err(DebuggerError)` - If the read failed
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The symbol is not a valid variable
+    /// - The variable's location cannot be determined
+    /// - Memory or register access fails
+    /// - The data type of the variable cannot be determined
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use coreminer::debuggee::Debuggee;
+    /// use coreminer::dwarf_parse::FrameInfo;
+    /// use coreminer::addr::Addr;
+    ///
+    /// # fn example(debuggee: &Debuggee, sym: &coreminer::dbginfo::OwnedSymbol) -> coreminer::errors::Result<()> {
+    /// // Create frame information
+    /// // Calculate these with the ELF and DWARF information
+    /// let frame_info = FrameInfo::new(
+    ///     Some(Addr::from(0x7fffffffe000usize)),
+    ///     Some(Addr::from(0x7fffffffe010usize))
+    /// );
+    ///
+    /// // Read the variable's value
+    /// let value = debuggee.var_read(sym, &frame_info)?;
+    /// println!("Variable value: {:?}", value);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn var_read(&self, sym: &OwnedSymbol, frame_info: &FrameInfo) -> Result<VariableValue> {
         self.check_sym_variable_ok(sym)?;
         let datatype = match self.get_type_for_symbol(sym)? {

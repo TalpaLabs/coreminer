@@ -60,10 +60,7 @@ impl FrameInfo {
     ///
     /// You could just fill this with any [Addr], but it's more complicated.
     /// See [crate::debugger::Debugger::prepare_variable_access].
-    pub(crate) fn new(
-        frame_base: Option<Addr>,
-        canonical_frame_address: Option<Addr>,
-    ) -> FrameInfo {
+    pub fn new(frame_base: Option<Addr>, canonical_frame_address: Option<Addr>) -> FrameInfo {
         FrameInfo {
             frame_base,
             canonical_frame_address,

@@ -2,7 +2,7 @@
 //!
 //! Provides functionality for generating backtraces of the debuggee's call stack.
 //!
-//! This module utilizes the [unwind] crate to walk through the stack frames of
+//! This module utilizes the [mod@unwind] crate to walk through the stack frames of
 //! a debugged process, generating a backtrace with information about function
 //! calls, addresses, and names. Stack unwinding is essential for understanding
 //! the execution context of a program at a particular point in time.

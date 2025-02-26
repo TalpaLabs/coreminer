@@ -260,7 +260,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             let a = self
                 .debuggee
                 .as_ref()
-                .unwrap()
+                .ok_or(DebuggerError::NoDebugee)?
                 .get_function_by_addr(self.get_reg(Register::rip)?.into())?;
             if let Some(s) = a {
                 debug!("step out in following function: {s:#?}");

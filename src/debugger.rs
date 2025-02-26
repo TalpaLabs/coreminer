@@ -71,17 +71,17 @@ use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 ///
 /// fn main() -> Result<()> {
 ///     // Create a UI implementation, this may be antthing implementing the DebuggerUI trait
-///     let ui = CliUi::build()?;
-///     
+///     let ui = CliUi::build(None)?;
+///
 ///     // Build a debugger with the UI
 ///     let mut debugger = Debugger::build(ui)?;
-///     
+///
 ///     // Run the main interactive debugging loop
 ///     debugger.run_debugger()?;
-///     
+///
 ///     // Clean up resources
 ///     debugger.cleanup()?;
-///     
+///
 ///     Ok(())
 /// }
 /// ```
@@ -99,11 +99,11 @@ use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 /// fn main() -> Result<()> {
 ///     // Create a UI implementation, this may be antthing implementing the DebuggerUI trait
 ///     // for automated, this is not really needed.
-///     let ui = CliUi::build()?;
-///     
+///     let ui = CliUi::build(None)?;
+///
 ///     // Build a debugger with the UI
 ///     let mut debugger = Debugger::build(ui)?;
-///     
+///
 ///     // Launch a program for debugging
 ///     let program_path = Path::new("./target/debug/my_program");
 ///     let args = vec![CString::new("my_program").unwrap(), CString::new("my_program").unwrap()];
@@ -123,7 +123,7 @@ use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 ///
 ///     // Clean up resources
 ///     debugger.cleanup()?;
-///     
+///
 ///     Ok(())
 /// }
 /// ```
@@ -152,7 +152,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// use coreminer::debugger::Debugger;
     /// use coreminer::ui::cli::CliUi;
     ///
-    /// let ui = CliUi::build().unwrap();
+    /// let ui = CliUi::build(None).unwrap();
     /// let debugger = Debugger::build(ui).unwrap();
     /// ```
     pub fn build(ui: UI) -> Result<Self> {
@@ -251,7 +251,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let mut debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -326,7 +326,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use nix::sys::wait::{WaitPidFlag, WaitStatus};
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -375,7 +375,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
-    /// let ui = CliUi::build().unwrap();
+    /// let ui = CliUi::build(None).unwrap();
     /// let mut debugger = Debugger::build(ui).unwrap();
     ///
     /// // Start the main debugger loop
@@ -463,7 +463,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use nix::sys::signal::Signal;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let mut debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -500,7 +500,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -537,7 +537,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let mut debugger = Debugger::build(ui).unwrap();
     /// #
     /// // Clean up resources at the end of debugging
@@ -575,7 +575,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::addr::Addr;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let mut debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -623,7 +623,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::addr::Addr;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let mut debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -692,7 +692,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let mut debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -750,7 +750,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let mut debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running and in a function
     /// #
@@ -924,7 +924,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::addr::Addr;
     /// # use coreminer::feedback::Feedback;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -970,7 +970,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -1108,7 +1108,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let mut debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -1180,7 +1180,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -1218,7 +1218,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -1328,7 +1328,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -1373,7 +1373,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -1420,7 +1420,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::addr::Addr;
     /// # use coreminer::feedback::Feedback;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -1463,7 +1463,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::addr::Addr;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -1502,7 +1502,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::Register;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -1541,7 +1541,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::Register;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -1574,7 +1574,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -1610,7 +1610,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let debugger = Debugger::build(ui).unwrap();
     /// # // Assume debuggee is already running
     /// #
@@ -1661,7 +1661,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use std::path::Path;
     /// # use std::ffi::CString;
     /// #
-    /// # let ui = CliUi::build().unwrap();
+    /// # let ui = CliUi::build(None).unwrap();
     /// # let mut debugger = Debugger::build(ui).unwrap();
     /// #
     /// // Run a program with arguments

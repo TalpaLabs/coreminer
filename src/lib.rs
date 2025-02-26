@@ -32,7 +32,7 @@
 //! use coreminer::ui::cli::CliUi;
 //!
 //! fn main() -> Result<(), coreminer::errors::DebuggerError> {
-//!     let ui = CliUi::build()?;
+//!     let ui = CliUi::build(None)?;
 //!     let mut debugger = Debugger::build(ui)?;
 //!     debugger.run_debugger()?;
 //!     debugger.cleanup()?;

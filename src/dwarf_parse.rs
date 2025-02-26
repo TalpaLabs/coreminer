@@ -49,7 +49,7 @@ impl Debuggee {
                 }
                 Some(a) => a,
             };
-            Some(Addr::from_relative(base_addr, a as usize))
+            Some(base_addr + a as usize)
         } else {
             None
         })

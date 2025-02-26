@@ -133,8 +133,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     pub fn run_debugger(&mut self) -> Result<()> {
         if let Some(dbge) = self.debuggee.as_ref() {
             self.wait(&[])?; // wait until the debuggee is stopped
-            let fun =
-                dbge.get_function_by_addr(Addr::from_relative(dbge.get_base_addr()?, 0x1140))?;
+            let fun = dbge.get_function_by_addr(dbge.get_base_addr()? + 0x1140)?;
             debug!("function at 0x1140: {fun:#?}");
             let root_syms = dbge.symbols();
             debug!("root symbols:\n{root_syms:#?}");

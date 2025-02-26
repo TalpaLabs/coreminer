@@ -4,7 +4,7 @@
 //!
 //! This module contains the [`Debuggee`] struct, which represents a process being
 //! debugged, and provides methods for interacting with that process. The debuggee
-//! is controlled through the [ptrace](nix::sys::ptrace) API and manages debug symbols, breakpoints,
+//! is controlled through the [ptrace] API and manages debug symbols, breakpoints,
 //! memory access, and other low-level debugging operations.
 
 use std::collections::HashMap;

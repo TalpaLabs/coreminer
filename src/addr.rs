@@ -9,10 +9,6 @@ pub type RawPointer = *mut std::ffi::c_void;
 pub struct Addr(usize);
 
 impl Addr {
-    pub fn relative(&self, base: Addr) -> Addr {
-        *self - base
-    }
-
     pub fn usize(&self) -> usize {
         self.0
     }

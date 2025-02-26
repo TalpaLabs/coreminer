@@ -10,15 +10,7 @@ description = "A debugger which can be used to debug programs that do not want t
 readme = "README.md"
 homepage = "https://github.com/debugger-bs/coreminer"
 repository = "https://github.com/debugger-bs/coreminer"
-keywords = [
-	"debugger",
-	"ptrace",
-	"dwarf",
-	"disassembler",
-	"debugging",
-	"amd64",
-	"x86-64",
-]
+keywords = ["debugger", "ptrace", "dwarf", "disassembler", "debugging"]
 categories = [
 	"development-tools",
 	"development-tools::debugging",

@@ -1,14 +1,42 @@
-# coreminer
+<div align="center">
+    <img alt="icon" src="./docs/img/logo.svg" width="60%"/>
+    <h3>🔩 coreminer 🪏</h3>
+    <p>
+        Debug those programs that don't want to be
+    </p>
+    <br/>
+    <a href="https://github.com/PlexSheep/coreminer/actions">
+        <img src="https://img.shields.io/github/actions/workflow/status/PlexSheep/coreminer/release.yml?label=Release" alt="Release Status"/>
+    </a>
+    <a href="https://github.com/PlexSheep/coreminer/actions">
+        <img src="https://img.shields.io/github/actions/workflow/status/PlexSheep/coreminer/cargo.yml?label=Rust%20CI" alt="Rust CI"/>
+    </a>
+    <a href="https://github.com/PlexSheep/coreminer/blob/master/LICENSE">
+        <img src="https://img.shields.io/github/license/PlexSheep/coreminer" alt="License"/>
+    </a>
+    <a href="https://github.com/PlexSheep/coreminer/releases">
+        <img src="https://img.shields.io/github/v/release/PlexSheep/coreminer" alt="Release"/>
+    </a>
+    <br/>
+    <a href="https://rust-lang.org">
+        <img src="https://img.shields.io/badge/language-Rust-blue.svg" alt="Rust"/>
+    </a>
+    <a href="https://crates.io/crates/coreminer">
+        <img alt="Crates.io MSRV" src="https://img.shields.io/crates/msrv/coreminer">
+        <img alt="Crates.io Total Downloads" src="https://img.shields.io/crates/d/coreminer">
+    </a>
+    <a href="https://docs.rs/coreminer">
+    <img alt="docs.rs" src="https://img.shields.io/docsrs/coreminer">
+    </a>
 
-![Project badge](https://img.shields.io/badge/language-Rust-blue.svg)
-![Crates.io License](https://img.shields.io/crates/l/coreminer)
-![GitHub Release](https://img.shields.io/github/v/release/debugger-bs/coreminer)
-![GitHub language count](https://img.shields.io/github/languages/count/debugger-bs/coreminer)
-[![Rust CI](https://github.com/debugger-bs/coreminer/actions/workflows/cargo.yaml/badge.svg)](https://github.com/debugger-bs/coreminer/actions/workflows/cargo.yaml)
+
+</div>
+
+# coreminer
 
 * [GitHub](https://github.com/debugger-bs/coreminer)
 * [crates.io](https://crates.io/crates/coreminer)
-* [docs.rs](https://docs.rs/crate/coreminer/)
+* [Documentation on docs.rs](https://docs.rs/crate/coreminer/)
 
 A powerful debugger written in Rust that provides low-level debugging capabilities for programs that may not want to be debugged. Coreminer gives you deep control over program execution with robust DWARF debug information parsing.
 

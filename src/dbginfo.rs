@@ -1,3 +1,13 @@
+//! # Debug Information Module
+//!
+//! Provides structures and functionality for parsing and handling ELF and DWARF information.
+//!
+//! This module contains types and functions for working with debug information extracted from
+//! executable files. It includes representations of debug symbols, compilation units, and
+//! mechanisms to search through debug symbols. The debug information is essential for
+//! setting memory addresses into context, inspecting variables, and
+//! understanding program structure at runtime.
+
 use std::fmt::Debug;
 use std::rc::Rc;
 
@@ -8,29 +18,67 @@ use crate::dwarf_parse::GimliReaderThing;
 use crate::errors::{DebuggerError, Result};
 use crate::Addr;
 
-// the gimli::Reader we use
+/// Type alias for the Gimli reader used for DWARF information parsing
 type GimliRd = EndianRcSlice<NativeEndian>;
+/// Type alias for a location in the DWARF debug information
 pub type GimliLocation = gimli::Location<GimliReaderThing, <GimliReaderThing as Reader>::Offset>;
 
+/// Represents debug information extracted from an executable
+///
+/// This struct holds the parsed DWARF debug information along with the
+/// original object file information, providing access to symbols, source
+/// locations, and other debug data.
 pub struct CMDebugInfo<'executable> {
+    /// The original object file information
     pub object_info: object::File<'executable>,
+    /// Line number information for address-to-line mapping
     pub linedata: addr2line::Context<GimliRd>,
+    /// The parsed DWARF debug information
     pub dwarf: gimli::Dwarf<GimliReaderThing>,
 }
 
+/// Categorizes different types of symbols found in debug information
+///
+/// This enum represents the various kinds of symbols that can be found in
+/// DWARF debug information, such as functions, variables, types, etc.
+///
+/// This is not an exhaustive enumeration and merely focuses on the most
+/// important kinds for this debugger. Uncovered types are treated as [SymbolKind::Other].
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum SymbolKind {
+    /// A function or method
     Function,
+
+    /// A compilation unit (typically a source file)
     CompileUnit,
+
+    /// A variable with storage
     Variable,
+
+    /// A symbol type not explicitly covered by other variants
     Other,
+
+    /// A basic data type (int, float, etc.)
     BaseType,
+
+    /// A constant value
     Constant,
+
+    /// A function parameter
     Parameter,
+
+    /// A lexical scope block
     Block,
 }
 
+/// Represents a parsed symbol from the debug information
+///
+/// [`OwnedSymbol`] contains information about a symbol extracted from DWARF debug
+/// information, including its name, address range, type information, and children
+/// symbols that are in its scope.
+///
+///
 #[derive(Clone)]
 pub struct OwnedSymbol {
     offset: usize,
@@ -47,6 +95,24 @@ pub struct OwnedSymbol {
 }
 
 impl OwnedSymbol {
+    /// Creates a new symbol with the given parameters
+    ///
+    /// The parameters of this function only include the necessary parameters. Optional fields like
+    /// the datatype can be set with the respective functions, e.g. [Self::set_datatype].
+    ///
+    /// # Parameters
+    ///
+    /// * `code` - The DWARF offset of the symbol
+    /// * `kind` - The kind of symbol
+    /// * `children` - Child symbols within this symbol's scope
+    /// * `encoding` - The DWARF encoding information
+    ///
+    /// The many optional parameters are available, e.g. with [OwnedSymbol::name] and
+    /// [OwnedSymbol::set_name].
+    ///
+    /// # Returns
+    ///
+    /// A new `OwnedSymbol` instance
     pub fn new(
         code: usize,
         kind: SymbolKind,
@@ -158,6 +224,27 @@ impl OwnedSymbol {
 }
 
 impl<'executable> CMDebugInfo<'executable> {
+    /// Creates a new debug information instance from an object file
+    ///
+    /// This function parses the DWARF debug information from the provided object file
+    /// and creates a structured representation that can be used for debugging operations.
+    ///
+    /// If the binary is stripped, this will still work, but the DWARF information will be empty,
+    /// meaning that no symbols will exist.
+    ///
+    /// # Parameters
+    ///
+    /// * `object_info` - The object file containing debug information
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(CMDebugInfo)` - The parsed debug information
+    /// * `Err(DebuggerError)` - If the debug information could not be parsed
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the DWARF information in the object file
+    /// is invalid or cannot be parsed.
     pub fn build(object_info: object::File<'executable>) -> Result<Self> {
         let loader = |section: gimli::SectionId| -> std::result::Result<_, ()> {
             // does never fail surely
@@ -225,6 +312,36 @@ impl Debug for OwnedSymbol {
     }
 }
 
+/// Searches for [symbols](OwnedSymbol) matching a predicate in a symbol hierarchy
+///
+/// This function recursively traverses a symbol tree and collects all symbols
+/// that match the provided filter function.
+///
+/// The symbols are organized in a tree. At the start, are the compilation units, which have all
+/// functions, globals, and many more as children. Functions have their variables as children, and
+/// so on. To search through all symbols, this function recursively considers not only the list of
+/// given symbols, but the children too, and the children of all children.
+///
+/// The relevant children get cloned.
+///
+/// # Parameters
+///
+/// * `haystack` - The symbols to search through
+/// * `fil` - A filter function that returns true for symbols to include
+///
+/// # Returns
+///
+/// A vector of symbols that match the filter function
+///
+/// # Examples
+///
+/// ```no_run
+/// use coreminer::dbginfo::{search_through_symbols, OwnedSymbol};
+///
+/// fn find_main_function(symbols: &[OwnedSymbol]) -> Vec<OwnedSymbol> {
+///     search_through_symbols(symbols, |sym| sym.name() == Some("main"))
+/// }
+/// ```
 pub fn search_through_symbols<F>(haystack: &[OwnedSymbol], fil: F) -> Vec<OwnedSymbol>
 where
     F: Fn(&OwnedSymbol) -> bool,
@@ -250,6 +367,10 @@ where
     relevant
 }
 
+/// Helper function to format large option values for debug output
+///
+/// This function returns a string representation of an option that avoids
+/// verbose output for large contained values.
 fn dbg_large_option<T>(o: Option<T>) -> &'static str {
     match o {
         Some(_inner) => "Some(...)",

@@ -5,17 +5,17 @@
         Debug those programs that don't want to be
     </p>
     <br/>
-    <a href="https://github.com/PlexSheep/coreminer/actions">
-        <img src="https://img.shields.io/github/actions/workflow/status/PlexSheep/coreminer/release.yml?label=Release" alt="Release Status"/>
+    <a href="https://github.com/debugger-bs/coreminer/actions">
+        <img src="https://img.shields.io/github/actions/workflow/status/debugger-bs/coreminer/release.yml?label=Release" alt="Release Status"/>
     </a>
-    <a href="https://github.com/PlexSheep/coreminer/actions">
-        <img src="https://img.shields.io/github/actions/workflow/status/PlexSheep/coreminer/cargo.yml?label=Rust%20CI" alt="Rust CI"/>
+    <a href="https://github.com/debugger-bs/coreminer/actions">
+        <img src="https://img.shields.io/github/actions/workflow/status/debugger-bs/coreminer/cargo.yml?label=Rust%20CI" alt="Rust CI"/>
     </a>
-    <a href="https://github.com/PlexSheep/coreminer/blob/master/LICENSE">
-        <img src="https://img.shields.io/github/license/PlexSheep/coreminer" alt="License"/>
+    <a href="https://github.com/debugger-bs/coreminer/blob/master/LICENSE">
+        <img src="https://img.shields.io/github/license/debugger-bs/coreminer" alt="License"/>
     </a>
-    <a href="https://github.com/PlexSheep/coreminer/releases">
-        <img src="https://img.shields.io/github/v/release/PlexSheep/coreminer" alt="Release"/>
+    <a href="https://github.com/debugger-bs/coreminer/releases">
+        <img src="https://img.shields.io/github/v/release/debugger-bs/coreminer" alt="Release"/>
     </a>
     <br/>
     <a href="https://rust-lang.org">

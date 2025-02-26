@@ -9,8 +9,21 @@ description = "A debugger which can be used to debug programs that do not want t
 readme = "README.md"
 homepage = "https://github.com/debugger-bs/coreminer"
 repository = "https://github.com/debugger-bs/coreminer"
-keywords = [""]
-
+keywords = [
+	"debugger",
+	"ptrace",
+	"dwarf",
+	"disassembler",
+	"debugging",
+	"amd64",
+	"x86-64",
+]
+categories = [
+	"development-tools",
+	"development-tools::debugging",
+	"command-line-utilities",
+	"memory-management",
+]
 
 [dependencies]
 addr2line = "0.24.2"

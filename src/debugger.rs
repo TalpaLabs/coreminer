@@ -580,7 +580,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # // Assume debuggee is already running
     /// #
     /// // Set a breakpoint at absolute address 0x1000
-    /// debugger.set_bp(Addr::from(0x1000)).unwrap();
+    /// debugger.set_bp(Addr::from(0x1000usize)).unwrap();
     ///
     /// // Set a breakpoint at the program's entry point
     /// let base = debugger.get_current_addr().unwrap();
@@ -628,7 +628,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # // Assume debuggee is already running
     /// #
     /// // Remove a breakpoint at address 0x1000
-    /// debugger.del_bp(Addr::from(0x1000)).unwrap();
+    /// debugger.del_bp(Addr::from(0x1000usize)).unwrap();
     ///
     /// // Remove a breakpoint at the relative address 0x1000
     /// let base = debugger.get_current_addr().unwrap();
@@ -929,9 +929,9 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # // Assume debuggee is already running
     /// #
     /// // Disassemble 16 bytes at address 0x1000
-    /// if let Ok(Feedback::Disassembly(disasm)) = debugger.disassemble_at(Addr::from(0x1000), 16, false) {
+    /// if let Ok(Feedback::Disassembly(disasm)) = debugger.disassemble_at(Addr::from(0x1000usize), 16, false) {
     ///     for (addr, raw, content, has_bp) in disasm.inner() {
-    ///         println!("{:x}: {} {}", addr, if *has_bp { "*" } else { " " }, content[0].0);
+    ///         println!("{}: {} {}", addr, if *has_bp { "*" } else { " " }, content[0].0);
     ///     }
     /// }
     /// ```
@@ -1425,7 +1425,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # // Assume debuggee is already running
     /// #
     /// // Read a word from memory at address 0x1000
-    /// if let Ok(Feedback::Word(value)) = debugger.read_mem(Addr::from(0x1000)) {
+    /// if let Ok(Feedback::Word(value)) = debugger.read_mem(Addr::from(0x1000usize)) {
     ///     println!("Memory at 0x1000: {:#x}", value);
     /// }
     /// ```
@@ -1468,7 +1468,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # // Assume debuggee is already running
     /// #
     /// // Write the value 0x42 to memory at address 0x1000
-    /// debugger.write_mem(Addr::from(0x1000), 0x42).unwrap();
+    /// debugger.write_mem(Addr::from(0x1000usize), 0x42).unwrap();
     /// ```
     pub fn write_mem(&self, addr: Addr, value: Word) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;

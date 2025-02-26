@@ -25,7 +25,7 @@ A powerful debugger written in Rust that provides low-level debugging capabiliti
 
 ### Additional system dependencies
 
-Coreminer depends on `libunwind-dev`. On Debian, it can be installed like 
+Coreminer depends on `libunwind-dev`. On Debian, it can be installed like
 this. Other distributions provide similar packages.
 
 ```bash
@@ -58,8 +58,8 @@ cm
 
 ## The testing UI
 
-Coreminer ships with a very simple CLI, that was used for implementing and 
-testing. A JSON based interface for other programs to implement a fancier 
+Coreminer ships with a very simple CLI, that was used for implementing and
+testing. A JSON based interface for other programs to implement a fancier
 interface is planned.
 
 Once in the coreminer CLI, you can use:
@@ -81,7 +81,7 @@ step
 # View disassembly at some address, 20 bytes
 d 0x0000563087528176 20
 
-# View disassembly at some address, 20 bytes, showing the code exactly how it is 
+# View disassembly at some address, 20 bytes, showing the code exactly how it is
 # in memory - including the int3 instructions set by breakpoints
 d 0x0000563087528176 20 --literal
 
@@ -170,5 +170,5 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Acknowledgements
 
-- Thanks to the [BugStalker](https://github.com/godzie44/BugStalker) project for inspiration and reference on unwinding implementation.
+- Thanks to the [BugStalker](https://github.com/godzie44/BugStalker) project for inspiration and reference on DWARF and unwinding implementation.
 - Thanks to the [Sy Brand – Writing a Linux Debugger](https://blog.tartanllama.xyz/writing-a-linux-debugger-setup/) for his blog on writing a debugger.

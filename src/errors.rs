@@ -1,10 +1,46 @@
+//! # Error Types
+//!
+//! Defines error types and a result alias used throughout the [crate].
+//!
+//! This module provides a comprehensive error handling system for the debugger,
+//! using the [thiserror] crate to define error types with detailed messages.
+//! It centralizes all potential error conditions that might occur during debugging
+//! operations, from system-level errors to debug information parsing issues.
+
 use gimli::DwTag;
 use thiserror::Error;
 
 use crate::dbginfo::SymbolKind;
 
+/// Type alias for Results returned by coreminer functions
+///
+/// This alias makes error handling more convenient by defaulting to the
+/// [`DebuggerError`] type, allowing functions to simply return `Result<T>`.
 pub type Result<T> = std::result::Result<T, DebuggerError>;
 
+/// Comprehensive error type for the coreminer debugger
+///
+/// [`DebuggerError`] encapsulates all potential errors that can occur during
+/// debugging operations, including system errors, parsing errors, and
+/// debugger-specific errors.
+///
+/// # Examples
+///
+/// ```
+/// use coreminer::errors::{DebuggerError, Result};
+///
+/// fn example_function() -> Result<()> {
+///     // System error example
+///     let file = std::fs::File::open("nonexistent_file")?;
+///     
+///     // Debugger-specific error example
+///     if true {
+///         return Err(DebuggerError::NoDebugee);
+///     }
+///     
+///     Ok(())
+/// }
+/// ```
 #[derive(Error, Debug)]
 pub enum DebuggerError {
     #[error("Os error: {0}")]

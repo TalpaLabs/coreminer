@@ -164,7 +164,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         Status::SetRegister(r, v) => self.set_reg(r, v),
                         Status::WriteMem(a, v) => self.write_mem(a, v),
                         Status::ReadMem(a) => self.read_mem(a),
-                        Status::DisassembleAt(a, l) => self.disassemble_at(a, l),
+                        Status::DisassembleAt(a, l, literal) => self.disassemble_at(a, l, literal),
                         Status::GetSymbolsByName(s) => self.get_symbol_by_name(s),
                         Status::StepSingle => self.single_step(),
                         Status::StepOut => self.step_out(),
@@ -362,10 +362,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         }
     }
 
-    pub fn disassemble_at(&self, addr: Addr, len: usize) -> Result<Feedback> {
+    pub fn disassemble_at(&self, addr: Addr, len: usize, literal: bool) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
-        let t = dbge.disassemble(addr, len)?;
+        let t = dbge.disassemble(addr, len, literal)?;
 
         Ok(Feedback::Disassembly(t))
     }
@@ -420,7 +420,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
         loop {
             let rip: Addr = (self.get_reg(Register::rip)?).into();
-            let disassembly: Disassembly = self.debuggee.as_ref().unwrap().disassemble(rip, 8)?;
+            let disassembly: Disassembly =
+                self.debuggee.as_ref().unwrap().disassemble(rip, 8, true)?;
             let next_instruction = &disassembly.inner()[0];
             let operator = next_instruction.2[0].clone();
 

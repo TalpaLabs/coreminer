@@ -17,8 +17,8 @@ struct DisassemblyOutput(Vec<TextContent>);
 // Custom formatter output that stores the output in a vector.
 #[derive(Debug, Clone, Hash)]
 pub struct Disassembly {
-    // addres, raw data, interpreted data for display
-    vec: Vec<(Addr, Vec<u8>, Vec<TextContent>)>,
+    // addres, raw data, interpreted data for display, is it a breakpoint?
+    vec: Vec<(Addr, Vec<u8>, Vec<TextContent>, bool)>,
 }
 
 impl DisassemblyOutput {
@@ -38,7 +38,7 @@ impl Disassembly {
         Self { vec: Vec::new() }
     }
 
-    pub fn disassemble(data: &[u8], first_addr: Addr) -> Result<Self> {
+    pub fn disassemble(data: &[u8], first_addr: Addr, bp_indexes: &[usize]) -> Result<Self> {
         let mut decoder =
             Decoder::with_ip(CODE_BITNESS, data, first_addr.into(), DecoderOptions::NONE);
         let mut formatter = NasmFormatter::new();
@@ -75,29 +75,35 @@ impl Disassembly {
             let start_index = (instruction.ip() - Into::<u64>::into(first_addr)) as usize;
             let instr_bytes = &data[start_index..start_index + instruction.len()];
 
-            disassembly.write_to_line(instruction.ip().into(), instr_bytes, text_contents.inner());
+            disassembly.write_to_line(
+                instruction.ip().into(),
+                instr_bytes,
+                text_contents.inner(),
+                bp_indexes.contains(&(instruction.ip() as usize - first_addr.usize())),
+            );
         }
 
         Ok(disassembly)
     }
 
-    pub fn inner(&self) -> &[(Addr, Vec<u8>, Vec<TextContent>)] {
+    pub fn inner(&self) -> &[(Addr, Vec<u8>, Vec<TextContent>, bool)] {
         &self.vec
     }
 
-    pub fn inner_mut(&mut self) -> &mut Vec<(Addr, Vec<u8>, Vec<TextContent>)> {
+    pub fn inner_mut(&mut self) -> &mut Vec<(Addr, Vec<u8>, Vec<TextContent>, bool)> {
         &mut self.vec
     }
 
     pub fn has_entry_for(&self, addr: Addr) -> bool {
-        self.vec.iter().any(|(a, _raw, _val)| *a == addr)
+        self.vec.iter().any(|(a, _raw, _val, _bp)| *a == addr)
     }
 
-    pub fn write_to_line(&mut self, addr: Addr, raw: &[u8], content: &[TextContent]) {
+    pub fn write_to_line(&mut self, addr: Addr, raw: &[u8], content: &[TextContent], has_bp: bool) {
         if self.has_entry_for(addr) {
             panic!("tried to insert line which was already disassembled")
         }
-        self.vec.push((addr, raw.to_vec(), content.to_vec()));
+        self.vec
+            .push((addr, raw.to_vec(), content.to_vec(), has_bp));
     }
 }
 
@@ -110,10 +116,15 @@ impl FormatterOutput for DisassemblyOutput {
 impl Display for Disassembly {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut buf2 = String::new();
-        for (addr, raw, content) in self.inner() {
-            write!(f, "{addr}\t")?;
+        for (addr, raw, content, has_bp) in self.inner() {
+            write!(f, "{addr}")?;
             for byte in raw {
                 write!(buf2, "{byte:02x} ")?;
+            }
+            if *has_bp {
+                write!(f, "{:<4}", "(*)")?;
+            } else {
+                write!(f, "{:<4}", "")?;
             }
             write!(f, "{:<20}\t", buf2)?;
             buf2.clear();

@@ -5,7 +5,8 @@ use crate::errors::{DebuggerError, Result};
 use crate::{mem_read_word, mem_write_word, Addr};
 
 pub const MASK_ALL: i64 = -1; // yup for real, two's complement
-pub const INT3: i64 = 0x00000000000000cc;
+pub const INT3_BYTE: u8 = 0xcc;
+pub const INT3: i64 = INT3_BYTE as i64;
 pub const WORD_MASK: i64 = 0x00000000000000ff;
 pub const WORD_MASK_INV: i64 = MASK_ALL ^ WORD_MASK;
 
@@ -61,6 +62,10 @@ impl Breakpoint {
         self.saved_data = None;
 
         Ok(())
+    }
+
+    pub fn saved_data(&self) -> Option<u8> {
+        self.saved_data
     }
 }
 

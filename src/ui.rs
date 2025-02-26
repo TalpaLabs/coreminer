@@ -14,7 +14,9 @@ pub enum Status {
     StepOut,
     StepSingle,
     GetSymbolsByName(String),
-    DisassembleAt(Addr, usize),
+    /// the bool is if the disassembly should be literal (include
+    /// int3 from breakpoints), or not
+    DisassembleAt(Addr, usize, bool),
     DebuggerQuit,
     Continue,
     SetBreakpoint(Addr),

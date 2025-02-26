@@ -8,9 +8,9 @@ use gimli::{
 use nix::sys::ptrace;
 use nix::unistd::Pid;
 use proc_maps::MapRange;
-use tracing::debug;
+use tracing::{debug, warn};
 
-use crate::breakpoint::Breakpoint;
+use crate::breakpoint::{Breakpoint, INT3_BYTE};
 use crate::dbginfo::{search_through_symbols, CMDebugInfo, OwnedSymbol, SymbolKind};
 use crate::disassemble::Disassembly;
 use crate::dwarf_parse::GimliReaderThing;
@@ -69,10 +69,45 @@ impl Debuggee {
         Self::get_base_addr_by_pid(self.pid)
     }
 
-    pub fn disassemble(&self, addr: Addr, len: usize) -> Result<Disassembly> {
+    pub fn disassemble(&self, addr: Addr, len: usize, literal: bool) -> Result<Disassembly> {
         let mut data_raw: Vec<u8> = vec![0; len];
         mem_read(&mut data_raw, self.pid, addr)?;
-        let out: Disassembly = Disassembly::disassemble(&data_raw, addr)?;
+
+        let mut bp_indexes = Vec::new();
+
+        for (idx, byte) in data_raw.iter_mut().enumerate() {
+            if *byte == INT3_BYTE {
+                let bp = match self.breakpoints.get(&(addr + idx)) {
+                    None => {
+                        warn!(
+                            "found an int3 without breakpoint at {}, ignoring",
+                            addr + idx
+                        );
+                        continue;
+                    }
+                    Some(b) => b,
+                };
+                bp_indexes.push(idx);
+
+                if !literal {
+                    *byte = bp.saved_data().expect(
+                        "breakpoint exists for a part of code that is an in3, but is disabled",
+                    );
+                }
+            }
+        }
+
+        let out: Disassembly = Disassembly::disassemble(&data_raw, addr, &bp_indexes)?;
+
+        for idx in bp_indexes {
+            if !self.breakpoints.contains_key(&(addr + idx)) {
+                panic!("a stored index that we thought had a breakpoint did not actually have a breakpoint")
+            }
+            if !literal {
+                data_raw[idx] = INT3_BYTE;
+            }
+        }
+
         Ok(out)
     }
 

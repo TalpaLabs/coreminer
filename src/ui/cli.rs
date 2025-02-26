@@ -74,13 +74,14 @@ impl DebuggerUI for CliUi {
                 return Ok(Status::DelBreakpoint(addr));
             } else if string_matches(&self.buf_preparsed[0], &["d", "dis"]) {
                 if self.buf_preparsed.len() < 3 {
-                    error!("d ADDR LEN");
+                    error!("d ADDR LEN [--literal]");
                     continue;
                 }
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr = Addr::from(addr_raw);
                 let len: usize = get_number(&self.buf_preparsed[2])? as usize;
-                return Ok(Status::DisassembleAt(addr, len));
+                let literal = self.buf_preparsed.get(3).is_some_and(|s| s == "--literal");
+                return Ok(Status::DisassembleAt(addr, len, literal));
             } else if string_matches(&self.buf_preparsed[0], &["break", "bp"]) {
                 let addr_raw: usize = get_number(&self.buf_preparsed[1])? as usize;
                 let addr: Addr = Addr::from(addr_raw);

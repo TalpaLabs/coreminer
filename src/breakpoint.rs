@@ -122,6 +122,10 @@ impl Breakpoint {
     /// Will return [`DebuggerError::BreakpointIsAlreadyEnabled`] if the breakpoint
     /// is already enabled.
     ///
+    /// This function can fail if:
+    /// - Reading from the [Addr] of the [Breakpoint] failed
+    /// - Writing to the [Addr] of the [Breakpoint] failed
+    ///
     /// # Examples
     ///
     /// ```no_run
@@ -160,6 +164,10 @@ impl Breakpoint {
     ///
     /// Will return [`DebuggerError::BreakpointIsAlreadyDisabled`] if the breakpoint
     /// is already disabled.
+    ///
+    /// This function can fail if:
+    /// - Reading from the [Addr] of the [Breakpoint] failed
+    /// - Writing to the [Addr] of the [Breakpoint] failed
     ///
     /// # Examples
     ///

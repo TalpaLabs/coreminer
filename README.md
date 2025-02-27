@@ -1,6 +1,6 @@
 <div align="center">
     <img alt="icon" src="./docs/img/logo.svg" width="60%"/>
-    <h3>🔩 coreminer 🪏</h3>
+    <h3>🔩 coreminer 👁️</h3>
     <p>
         Debug those programs that don't want to be
     </p>
@@ -28,8 +28,6 @@
     <a href="https://docs.rs/coreminer">
     <img alt="docs.rs" src="https://img.shields.io/docsrs/coreminer">
     </a>
-
-
 </div>
 
 # coreminer

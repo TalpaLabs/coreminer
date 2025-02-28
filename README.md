@@ -25,7 +25,7 @@
         <img alt="Crates.io MSRV" src="https://img.shields.io/crates/msrv/coreminer">
         <img alt="Crates.io Total Downloads" src="https://img.shields.io/crates/d/coreminer">
     </a>
-    <a href="https://docs.rs/coreminer">
+    <a href="https://docs.rs/coreminer/latest/coreminer">
     <img alt="docs.rs" src="https://img.shields.io/docsrs/coreminer">
     </a>
 </div>
@@ -34,7 +34,7 @@
 
 * [GitHub](https://github.com/debugger-bs/coreminer)
 * [crates.io](https://crates.io/crates/coreminer)
-* [Documentation on docs.rs](https://docs.rs/crate/coreminer/)
+* [Documentation on docs.rs](https://docs.rs/coreminer/latest/coreminer/)
 
 A powerful debugger written in Rust that provides low-level debugging capabilities for programs that may not want to be debugged. Coreminer gives you deep control over program execution with robust DWARF debug information parsing.
 

@@ -194,12 +194,12 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     fn launch_debuggee(&mut self, path: impl AsRef<Path>, args: &[CString]) -> Result<()> {
         let path: &Path = path.as_ref();
         if !path.exists() {
-            let err = DebuggerError::ExecutableDoesNotExist(path.to_string_lossy().to_string());
+            let err = DebuggerError::ExecutableDoesNotExist;
             error!("{err}");
             return Err(err);
         }
         if !path.is_file() {
-            let err = DebuggerError::ExecutableIsNotAFile(path.to_string_lossy().to_string());
+            let err = DebuggerError::ExecutableIsNotAFile;
             error!("{err}");
             return Err(err);
         }

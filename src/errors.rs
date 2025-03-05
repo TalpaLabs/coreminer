@@ -50,10 +50,12 @@ pub enum DebuggerError {
     Os(#[from] nix::Error),
     #[error("Io error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("Executable does not exist: {0}")]
-    ExecutableDoesNotExist(String),
-    #[error("Executable is not a file: {0}")]
-    ExecutableIsNotAFile(String),
+    #[error("Given Executable does not exist")]
+    ExecutableDoesNotExist,
+    #[error("Given Executable is not a file")]
+    ExecutableIsNotAFile,
+    #[error("Given Executable is not executable (try chmod +x)")]
+    ExecutableIsNotExecutable,
     #[error("Could not convert to CString: {0}")]
     CStringConv(#[from] std::ffi::NulError),
     #[error("No debuggee configured")]
@@ -133,8 +135,9 @@ impl Serialize for DebuggerError {
         let error_type = match self {
             DebuggerError::Os(_) => "OS",
             DebuggerError::Io(_) => "IO",
-            DebuggerError::ExecutableDoesNotExist(_) => "ExecutableDoesNotExist",
-            DebuggerError::ExecutableIsNotAFile(_) => "Is NotAFile",
+            DebuggerError::ExecutableDoesNotExist => "ExecutableDoesNotExist",
+            DebuggerError::ExecutableIsNotAFile => "ExecutableIsNotAFile",
+            DebuggerError::ExecutableIsNotExecutable => "ExecutableIsNotExecutable",
             DebuggerError::CStringConv(_) => "CStringConversion",
             DebuggerError::NoDebugee => "NoDebuggee",
             DebuggerError::BreakpointIsAlreadyEnabled => "BreakpointAlreadyEnabled",

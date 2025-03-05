@@ -11,6 +11,7 @@ use gimli::DwTag;
 use serde::{Serialize, Serializer};
 use thiserror::Error;
 
+use crate::addr::Addr;
 use crate::dbginfo::SymbolKind;
 
 /// Type alias for Results returned by coreminer functions
@@ -109,6 +110,10 @@ pub enum DebuggerError {
     MultipleDwarfEntries,
     #[error("Working with JSON failed: {0}")]
     Json(#[from] serde_json::Error),
+    #[error(
+        "Tried to disassemble a line that we had already disassembled for this iteration: {0}"
+    )]
+    AlreadyDisassembled(Addr),
 }
 
 // Create a serializable representation of errors
@@ -158,6 +163,7 @@ impl Serialize for DebuggerError {
             DebuggerError::AlreadyRunning => "AlreadyRunning",
             DebuggerError::MultipleDwarfEntries => "MultipleDWARFEntries",
             DebuggerError::Json(_) => "Json",
+            DebuggerError::AlreadyDisassembled(_) => "AlreadyDisassembled",
         };
 
         // Use Display implementation to get error message

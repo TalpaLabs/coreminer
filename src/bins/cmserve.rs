@@ -5,12 +5,11 @@ use coreminer::addr::Addr;
 use coreminer::debugger::Debugger;
 use coreminer::errors::DebuggerError;
 use coreminer::feedback::Feedback;
-use coreminer::ui::json::{self, Input, JsonUI};
+use coreminer::ui::json::{Input, JsonUI};
 
 use clap::Parser;
 use coreminer::ui::Status;
-use tracing::{debug, trace};
-use serde_json::json;
+use tracing::trace;
 
 /// Launch the core debugger
 #[derive(Parser, Debug)]
@@ -76,7 +75,9 @@ fn example_feedbacks() {
     let feedbacks: &[Feedback] = &[
         Feedback::Ok,
         Feedback::Word(921589215i64),
-        Feedback::Variable(coreminer::variable::VariableValue::Bytes(vec![19,13,13,13,17]))
+        Feedback::Variable(coreminer::variable::VariableValue::Bytes(vec![
+            19, 13, 13, 13, 17,
+        ])),
     ];
 
     for f in feedbacks {

@@ -4,29 +4,37 @@ use std::process::exit;
 use coreminer::addr::Addr;
 use coreminer::debugger::Debugger;
 use coreminer::errors::DebuggerError;
-use coreminer::ui::json::{Input, JsonUI};
+use coreminer::feedback::Feedback;
+use coreminer::ui::json::{self, Input, JsonUI};
 
 use clap::Parser;
 use coreminer::ui::Status;
-use tracing::debug;
+use tracing::{debug, trace};
+use serde_json::json;
 
 /// Launch the core debugger
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(short, long)]
+    #[arg(long)]
     /// Print example status inputs and exit
     example_statuses: bool,
+    #[arg(long)]
+    /// Print example status inputs and exit
+    example_feedbacks: bool,
 }
 
 fn main() -> Result<(), DebuggerError> {
     setup_logger();
-    debug!("set up the logger");
 
     let args = Args::parse();
 
     if args.example_statuses {
         example_statuses();
+        exit(0);
+    }
+    if args.example_feedbacks {
+        example_feedbacks();
         exit(0);
     }
 
@@ -64,6 +72,21 @@ fn example_statuses() {
     }
 }
 
+fn example_feedbacks() {
+    let feedbacks: &[Feedback] = &[
+        Feedback::Ok,
+        Feedback::Word(921589215i64),
+        Feedback::Variable(coreminer::variable::VariableValue::Bytes(vec![19,13,13,13,17]))
+    ];
+
+    for f in feedbacks {
+        println!(
+            "{}",
+            serde_json::to_string(& json!( { "feedback": f })).unwrap()
+        )
+    }
+}
+
 fn setup_logger() {
     // construct a subscriber that prints formatted traces to stdout
     let subscriber = tracing_subscriber::fmt()
@@ -72,4 +95,5 @@ fn setup_logger() {
         .finish();
     // use that subscriber to process traces emitted after this point
     tracing::subscriber::set_global_default(subscriber).expect("could not setup logger");
+    trace!("set up the logger");
 }

@@ -22,7 +22,9 @@ use crate::errors::Result;
 use crate::feedback::Feedback;
 use crate::{Addr, Register, Word};
 
+#[cfg(feature = "cli")]
 pub mod cli;
+#[cfg(feature = "cmserve")]
 pub mod json;
 
 /// Represents a command from the UI to the debugger

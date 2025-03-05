@@ -308,7 +308,7 @@ impl Debuggee {
     /// );
     ///
     /// // Write the value 42 to the variable
-    /// debuggee.var_write(sym, &frame_info, VariableValue::from(42usize))?;
+    /// debuggee.var_write(sym, &frame_info, &VariableValue::from(42usize))?;
     /// # Ok(())
     /// # }
     /// ```

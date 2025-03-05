@@ -15,7 +15,7 @@
 
 use std::fmt::{Display, Write};
 
-use crate::errors::Result;
+use crate::errors::{DebuggerError, Result};
 use crate::Addr;
 
 const CODE_BITNESS: u32 = 64;
@@ -25,6 +25,7 @@ use iced_x86::{
     NasmFormatter,
 };
 use serde::{Serialize, Serializer};
+use tracing::warn;
 
 /// Type alias for text content in disassembled code
 ///
@@ -224,12 +225,14 @@ impl Disassembly {
             let start_index = (instruction.ip() - Into::<u64>::into(first_addr)) as usize;
             let instr_bytes = &data[start_index..start_index + instruction.len()];
 
-            disassembly.write_to_line(
+            if let Err(e) = disassembly.write_to_line(
                 instruction.ip().into(),
                 instr_bytes,
                 text_contents.inner(),
                 bp_indexes.contains(&(instruction.ip() as usize - first_addr.usize())),
-            );
+            ) {
+                warn!("Error while disassembling, skipping: {e}");
+            };
         }
 
         Ok(disassembly)
@@ -281,17 +284,24 @@ impl Disassembly {
     /// * `content` - The formatted text content of the instruction
     /// * `has_bp` - Whether the instruction has a breakpoint set
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This function will panic if an instruction at the given address already exists
+    /// This function will error if an instruction at the given address already exists
     /// in the disassembly.
-    pub fn write_to_line(&mut self, addr: Addr, raw: &[u8], content: &[TextContent], has_bp: bool) {
-        assert!(
-            !self.has_entry_for(addr),
-            "tried to insert line which was already disassembled"
-        );
+    pub fn write_to_line(
+        &mut self,
+        addr: Addr,
+        raw: &[u8],
+        content: &[TextContent],
+        has_bp: bool,
+    ) -> Result<()> {
+        // TODO: replace assert with error check
+        if self.has_entry_for(addr) {
+            return Err(DebuggerError::AlreadyDisassembled(addr));
+        }
         self.vec
             .push((addr, raw.to_vec(), content.to_vec(), has_bp));
+        Ok(())
     }
 }
 

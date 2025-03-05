@@ -81,7 +81,7 @@ pub enum SymbolKind {
 ///
 /// Note that `encoding`, `frame_base` and `location` are skipped when serializing this with
 /// [`serde`], as they are [`gimli`] datatypes.
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, PartialEq, Eq)]
 pub struct OwnedSymbol {
     offset: usize,
     name: Option<String>,
@@ -534,5 +534,28 @@ mod tests {
 
         assert_eq!(parent.children().len(), 1);
         assert_eq!(parent.children()[0].name(), Some("child"));
+    }
+
+    #[test]
+    fn test_symbol_serialize_deserialize() {
+        const JSON_PREDEFINED: &str = concat!(
+            r#"{"offset":0,"name":"parent","low_addr":null,"high_addr":null,"datatype":null,"#,
+            r#""kind":"Function","children":[{"offset":1,"name":"child","low_addr":null,"#,
+            r#""high_addr":null,"datatype":null,"kind":"Variable","children":[],"#,
+            r#""byte_size":null}],"byte_size":null}"#
+        );
+
+        let encoding = test_encoding();
+        let child = {
+            let mut sym = OwnedSymbol::new(1, SymbolKind::Variable, &[], encoding);
+            sym.set_name(Some("child".to_string()));
+            sym
+        };
+        let mut parent = OwnedSymbol::new(0, SymbolKind::Function, &[], encoding);
+        parent.set_name(Some("parent".to_string()));
+        parent.set_children(vec![child]);
+
+        let json = serde_json::to_string(&parent).unwrap();
+        assert_eq!(json, JSON_PREDEFINED);
     }
 }

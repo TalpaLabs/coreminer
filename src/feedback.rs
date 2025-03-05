@@ -42,7 +42,8 @@ use crate::{Addr, Word};
 ///         "read_mem" => Feedback::Word(42),
 ///         "get_addr" => Feedback::Addr(Addr::from(0x1000usize)),
 ///         "error" => Feedback::Error(coreminer::errors::DebuggerError::NoDebugee),
-///         _ => Feedback::Text(format!("Unknown operation: {}", operation)),
+///         _ => Feedback::Error(coreminer::errors::DebuggerError::Io(std::io::Error::
+///         other("unknown"))),
 ///     }
 /// }
 ///
@@ -52,16 +53,12 @@ use crate::{Addr, Word};
 ///         Feedback::Word(word) => println!("Word value: {:#x}", word),
 ///         Feedback::Addr(addr) => println!("Address: {}", addr),
 ///         Feedback::Error(err) => println!("Error: {}", err),
-///         Feedback::Text(text) => println!("{}", text),
 ///         _ => println!("Other feedback type: {}", feedback),
 ///     }
 /// }
 /// ```
 #[derive(Debug, Serialize)]
 pub enum Feedback {
-    /// Simple text message
-    Text(String),
-
     /// Memory word value
     Word(Word),
 
@@ -107,7 +104,6 @@ impl Display for Feedback {
             Feedback::Registers(regs) => write!(f, "Registers: {regs:#x?}")?,
             Feedback::Word(w) => write!(f, "Word: {w:#018x?}")?,
             Feedback::Addr(w) => write!(f, "Address: {w}")?,
-            Feedback::Text(t) => write!(f, "{t}")?,
             Feedback::Disassembly(t) => write!(f, "{t:#?}")?,
             Feedback::Symbols(t) => write!(f, "Symbols: {t:#?}")?,
             Feedback::Backtrace(t) => write!(f, "Backtrace: {t:#?}")?,

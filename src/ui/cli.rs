@@ -73,8 +73,6 @@ impl DebuggerUI for CliUi {
     fn process(&mut self, feedback: Feedback) -> crate::errors::Result<Status> {
         if let Feedback::Error(e) = feedback {
             warn!("{e}");
-        } else if let Feedback::Text(t) = feedback {
-            info!("\n{t}");
         } else if let Feedback::Disassembly(d) = feedback {
             info!("\n{d}");
         } else {

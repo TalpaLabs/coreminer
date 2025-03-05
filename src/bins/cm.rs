@@ -36,7 +36,7 @@ struct Args {
 }
 
 fn main() -> Result<(), DebuggerError> {
-    setup_logger();
+    setup();
 
     let args = Args::parse();
 
@@ -48,7 +48,8 @@ fn main() -> Result<(), DebuggerError> {
     Ok(())
 }
 
-fn setup_logger() {
+fn setup() {
+    human_panic::setup_panic!();
     // construct a subscriber that prints formatted traces to stdout
     let subscriber = tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)

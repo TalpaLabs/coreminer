@@ -32,8 +32,6 @@ pub type GimliLocation = gimli::Location<GimliReaderThing, <GimliReaderThing as 
 pub struct CMDebugInfo<'executable> {
     /// The original object file information
     pub object_info: object::File<'executable>,
-    /// Line number information for address-to-line mapping
-    pub linedata: addr2line::Context<GimliRd>,
     /// The parsed DWARF debug information
     pub dwarf: gimli::Dwarf<GimliReaderThing>,
 }
@@ -301,15 +299,8 @@ impl<'executable> CMDebugInfo<'executable> {
             ))
         };
         let dwarf = gimli::Dwarf::load(loader).unwrap();
-        let dwarf2 = gimli::Dwarf::load(loader).unwrap();
 
-        let linedata = addr2line::Context::from_dwarf(dwarf2)?;
-
-        Ok(CMDebugInfo {
-            object_info,
-            linedata,
-            dwarf,
-        })
+        Ok(CMDebugInfo { object_info, dwarf })
     }
 }
 

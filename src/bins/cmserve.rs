@@ -11,15 +11,39 @@ use clap::Parser;
 use coreminer::ui::Status;
 use tracing::trace;
 
-/// Launch the core debugger
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(
+    author,
+    version,
+    about,
+    long_about,
+    help_template = r#"{about-section}
+{usage-heading} {usage}
+{all-args}{tab}
+
+{name}: v{version}
+Authors: {author-with-newline}
+"#
+)]
+/// Coreminer Server - JSON interface for programmatic debugging
+///
+/// Provides a JSON-based interface to the Coreminer debugger, enabling integration
+/// with UIs such as hardhat or scripting. Communicates via standard input/output
+/// using JSON for both commands and responses.
+///
+/// cmserve does not implement the Debugger Adapter Protocol as of yet and instead uses
+/// a simplified protocol based on internal datastructures.
 struct Args {
     #[arg(long)]
-    /// Print example status inputs and exit
+    /// Print example JSON commands and exit
+    ///
+    /// Displays sample JSON structures for sending commands to the debugger
     example_statuses: bool,
+
     #[arg(long)]
-    /// Print example status inputs and exit
+    /// Print example JSON responses and exit
+    ///
+    /// Displays sample JSON structures for the responses sent by the debugger
     example_feedbacks: bool,
 }
 

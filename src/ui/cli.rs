@@ -204,6 +204,7 @@ impl CliUi {
 }
 
 impl DebuggerUI for CliUi {
+    #[allow(clippy::pedantic)] // TODO: refactor this function
     fn process(&mut self, feedback: Feedback) -> crate::errors::Result<Status> {
         if let Feedback::Error(e) = feedback {
             warn!("{e}");

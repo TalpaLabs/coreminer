@@ -95,6 +95,8 @@ pub enum DebuggerError {
     VariableSymbolNoType,
     #[error("Symbol has no location (but needed it)")]
     SymbolHasNoLocation,
+    #[error("Symbol has byte size (but needed it)")]
+    SymbolHasNoByteSize,
     #[error("Variable expression led to multiple variables being found: {0}")]
     AmbiguousVarExpr(String),
     #[error("Variable expression led to no variables being found: {0}")]
@@ -158,7 +160,8 @@ impl Serialize for DebuggerError {
             DebuggerError::UnimplementedRegister(_) => "UnimplementedRegister",
             DebuggerError::WrongSymbolKind(_) => "WrongSymbolKind",
             DebuggerError::VariableSymbolNoType => "SymbolNoType",
-            DebuggerError::SymbolHasNoLocation => "HasNoLocation",
+            DebuggerError::SymbolHasNoLocation => "SymbolHasNoLocation",
+            DebuggerError::SymbolHasNoByteSize => "SymbolHasNoByteSize",
             DebuggerError::AmbiguousVarExpr(_) => "AmbiguousVariableExpression",
             DebuggerError::VarExprReturnedNothing(_) => "ExpressionReturnedNothing",
             DebuggerError::NoDatatypeFound => "NoDatatypeFound",

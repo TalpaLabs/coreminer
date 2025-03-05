@@ -37,6 +37,7 @@ pub mod json;
 /// use coreminer::ui::Status;
 /// use coreminer::addr::Addr;
 /// use coreminer::Register;
+/// use std::path::Path;
 ///
 /// // Command to set a breakpoint at address 0x1000
 /// let status = Status::SetBreakpoint(Addr::from(0x1000usize));

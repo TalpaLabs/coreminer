@@ -120,7 +120,7 @@ pub struct MemoryPermissions {
 /// use proc_maps::get_process_maps;
 ///
 /// // Get the memory map for the current process
-/// let maps = get_process_maps(std::process::id() as i32)?;
+/// let maps = get_process_maps(std::process::id() as i32).unwrap();
 /// let memory_map = ProcessMemoryMap::from(maps);
 ///
 /// // Print the memory map summary

@@ -7,7 +7,7 @@
 //! calls, addresses, and names. Stack unwinding is essential for understanding
 //! the execution context of a program at a particular point in time.
 //!
-//! The implementation is inspired by the BugStalker debugger project:
+//! The implementation is inspired by the `BugStalker` debugger project:
 //! <https://github.com/godzie44/BugStalker> (MIT Licensed)
 
 use crate::errors::Result;

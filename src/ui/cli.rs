@@ -25,7 +25,7 @@ impl CliUi {
             buf: String::new(),
             history: BasicHistory::new(),
             stepper: 0,
-            default_executable: default_executable.map(|a| a.to_owned()),
+            default_executable: default_executable.map(std::borrow::ToOwned::to_owned),
         };
         Ok(ui)
     }
@@ -35,7 +35,11 @@ impl CliUi {
             .history_with(&mut self.history)
             .interact_text()?;
         trace!("processing '{}'", self.buf);
-        self.buf_preparsed = self.buf.split_whitespace().map(|a| a.to_string()).collect();
+        self.buf_preparsed = self
+            .buf
+            .split_whitespace()
+            .map(std::string::ToString::to_string)
+            .collect();
         trace!("preparsed: {:?}", self.buf_preparsed);
         Ok(())
     }
@@ -103,35 +107,30 @@ impl DebuggerUI for CliUi {
                     continue;
                 }
 
-                match self.get_number(1) {
-                    Some(addr_raw) => {
-                        let addr: Addr = Addr::from(addr_raw as usize);
-                        return Ok(Status::DelBreakpoint(addr));
-                    }
-                    None => {
-                        error!("Invalid address for delbreak");
-                        continue;
-                    }
+                if let Some(addr_raw) = self.get_number(1) {
+                    let addr: Addr = Addr::from(addr_raw as usize);
+                    return Ok(Status::DelBreakpoint(addr));
+                } else {
+                    error!("Invalid address for delbreak");
+                    continue;
                 }
             } else if string_matches(cmd, &["d", "dis"]) {
                 if !self.ensure_args("disassemble", 2) {
                     continue;
                 }
 
-                let addr_raw = match self.get_number(1) {
-                    Some(val) => val as usize,
-                    None => {
-                        error!("Invalid address for disassemble");
-                        continue;
-                    }
+                let addr_raw = if let Some(val) = self.get_number(1) {
+                    val as usize
+                } else {
+                    error!("Invalid address for disassemble");
+                    continue;
                 };
 
-                let len = match self.get_number(2) {
-                    Some(val) => val as usize,
-                    None => {
-                        error!("Invalid length for disassemble");
-                        continue;
-                    }
+                let len = if let Some(val) = self.get_number(2) {
+                    val as usize
+                } else {
+                    error!("Invalid length for disassemble");
+                    continue;
                 };
 
                 let addr = Addr::from(addr_raw);
@@ -142,15 +141,12 @@ impl DebuggerUI for CliUi {
                     continue;
                 }
 
-                match self.get_number(1) {
-                    Some(addr_raw) => {
-                        let addr: Addr = Addr::from(addr_raw as usize);
-                        return Ok(Status::SetBreakpoint(addr));
-                    }
-                    None => {
-                        error!("Invalid address for breakpoint");
-                        continue;
-                    }
+                if let Some(addr_raw) = self.get_number(1) {
+                    let addr: Addr = Addr::from(addr_raw as usize);
+                    return Ok(Status::SetBreakpoint(addr));
+                } else {
+                    error!("Invalid address for breakpoint");
+                    continue;
                 }
             } else if string_matches(cmd, &["set"]) {
                 if !self.ensure_args("set", 2) {
@@ -167,7 +163,7 @@ impl DebuggerUI for CliUi {
                         }
                     }
                 } else {
-                    error!("Unknown subcommand for set")
+                    error!("Unknown subcommand for set");
                 }
                 continue;
             } else if string_matches(cmd, &["sym", "gsym"]) {
@@ -191,14 +187,11 @@ impl DebuggerUI for CliUi {
 
                 let symbol_name: String = self.buf_preparsed[1].to_string();
 
-                match self.get_number(2) {
-                    Some(value) => {
-                        return Ok(Status::WriteVariable(symbol_name, value as usize));
-                    }
-                    None => {
-                        error!("Invalid value for variable");
-                        continue;
-                    }
+                if let Some(value) = self.get_number(2) {
+                    return Ok(Status::WriteVariable(symbol_name, value as usize));
+                } else {
+                    error!("Invalid value for variable");
+                    continue;
                 }
             } else if string_matches(cmd, &["run"]) {
                 if self.buf_preparsed.len() == 1 && self.default_executable.is_some() {
@@ -262,35 +255,30 @@ impl DebuggerUI for CliUi {
                     continue;
                 }
 
-                match self.get_number(1) {
-                    Some(addr_raw) => {
-                        let addr: Addr = Addr::from(addr_raw as usize);
-                        return Ok(Status::ReadMem(addr));
-                    }
-                    None => {
-                        error!("Invalid address for rmem");
-                        continue;
-                    }
+                if let Some(addr_raw) = self.get_number(1) {
+                    let addr: Addr = Addr::from(addr_raw as usize);
+                    return Ok(Status::ReadMem(addr));
+                } else {
+                    error!("Invalid address for rmem");
+                    continue;
                 }
             } else if string_matches(cmd, &["wmem"]) {
                 if !self.ensure_args("wmem", 2) {
                     continue;
                 }
 
-                let addr_raw = match self.get_number(1) {
-                    Some(val) => val as usize,
-                    None => {
-                        error!("Invalid address for wmem");
-                        continue;
-                    }
+                let addr_raw = if let Some(val) = self.get_number(1) {
+                    val as usize
+                } else {
+                    error!("Invalid address for wmem");
+                    continue;
                 };
 
-                let value = match self.get_number(2) {
-                    Some(val) => val as i64,
-                    None => {
-                        error!("Invalid value for wmem");
-                        continue;
-                    }
+                let value = if let Some(val) = self.get_number(2) {
+                    val as i64
+                } else {
+                    error!("Invalid value for wmem");
+                    continue;
                 };
 
                 let addr: Addr = Addr::from(addr_raw);
@@ -308,15 +296,14 @@ impl DebuggerUI for CliUi {
                     }
 
                     match Register::from_str(&self.buf_preparsed[2]) {
-                        Ok(register) => match self.get_number(3) {
-                            Some(value) => {
+                        Ok(register) => {
+                            if let Some(value) = self.get_number(3) {
                                 return Ok(Status::SetRegister(register, value));
-                            }
-                            None => {
+                            } else {
                                 error!("Invalid value for register");
                                 continue;
                             }
-                        },
+                        }
                         Err(e) => {
                             error!("Invalid register: {}", e);
                             continue;

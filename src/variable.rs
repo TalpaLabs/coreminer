@@ -27,7 +27,7 @@ use crate::{get_reg, mem_read, mem_write, set_reg, Addr, Word, WORD_BYTES};
 /// typically by their source-level names.
 ///
 /// In the future, this might include something like dereferencing, or logic, to filter from
-/// various [OwnedSymbols][OwnedSymbol].
+/// various [`OwnedSymbols`][OwnedSymbol].
 pub type VariableExpression = String;
 
 /// Represents a variable value in one of several forms
@@ -89,6 +89,7 @@ impl VariableValue {
     /// let numeric_value = VariableValue::Numeric(Value::U32(42));
     /// assert_eq!(numeric_value.byte_size(), 4);
     /// ```
+    #[must_use]
     pub fn byte_size(&self) -> usize {
         match self {
             Self::Bytes(b) => b.len(),
@@ -113,7 +114,7 @@ impl VariableValue {
     ///
     /// # Panics
     ///
-    /// This method will panic if [self] is a [VariableValue::Bytes] which has more bytes than a [u64] can hold.
+    /// This method will panic if [self] is a [`VariableValue::Bytes`] which has more bytes than a [u64] can hold.
     ///
     /// # Examples
     ///
@@ -130,12 +131,11 @@ impl VariableValue {
     /// let numeric_value = VariableValue::Numeric(Value::U32(42));
     /// assert_eq!(numeric_value.to_u64(), 42);
     /// ```
+    #[must_use]
     pub fn to_u64(&self) -> u64 {
         match self {
             Self::Bytes(b) => {
-                if b.len() > WORD_BYTES {
-                    panic!("too many bytes to put into a word")
-                }
+                assert!((b.len() <= WORD_BYTES), "too many bytes to put into a word");
                 // NOTE: this is safe because `b` should never have more bytes than a u64
                 crate::bytes_to_u64(b).unwrap()
             }
@@ -168,7 +168,7 @@ impl VariableValue {
     ///
     /// # Panics
     ///
-    /// This method will panic if [self] is a [VariableValue::Bytes] which has more bytes than a [u64] can hold.
+    /// This method will panic if [self] is a [`VariableValue::Bytes`] which has more bytes than a [u64] can hold.
     ///
     /// # Examples
     ///
@@ -186,10 +186,12 @@ impl VariableValue {
     /// let bytes = value.resize_to_bytes(2);
     /// assert_eq!(bytes, vec![0x89, 0x67]);
     /// ```
+    #[must_use]
     pub fn resize_to_bytes(&self, target_size: usize) -> Vec<u8> {
-        if target_size > WORD_BYTES {
-            panic!("requested byte size was larger than a word")
-        }
+        assert!(
+            (target_size <= WORD_BYTES),
+            "requested byte size was larger than a word"
+        );
 
         let mut data = self.to_u64().to_ne_bytes().to_vec();
         data.truncate(target_size);
@@ -252,7 +254,7 @@ impl Debuggee {
     /// - The symbol does not have a data type
     /// - The symbol does not have a location
     ///
-    /// If it fails, the symbol should not be used for either [Self::var_write] or [Self::var_read].
+    /// If it fails, the symbol should not be used for either [`Self::var_write`] or [`Self::var_read`].
     fn check_sym_variable_ok(&self, sym: &OwnedSymbol) -> Result<()> {
         match sym.kind() {
             SymbolKind::Variable | SymbolKind::Parameter => (),
@@ -269,7 +271,7 @@ impl Debuggee {
 
     /// Writes a value to a variable
     ///
-    /// Prefer to use the more high level [crate::debugger::Debugger::write_variable].
+    /// Prefer to use the more high level [`crate::debugger::Debugger::write_variable`].
     ///
     /// # Parameters
     ///
@@ -340,7 +342,7 @@ impl Debuggee {
                 assert_eq!(written, value.byte_size());
             }
             gimli::Location::Register { register } => {
-                set_reg(self.pid, register.try_into()?, value.to_u64())?
+                set_reg(self.pid, register.try_into()?, value.to_u64())?;
             }
             other => unimplemented!(
                 "writing to variable with gimli location of type {other:?} is not implemented"
@@ -352,7 +354,7 @@ impl Debuggee {
 
     /// Reads the value of a variable
     ///
-    /// Prefer to use the more high level [crate::debugger::Debugger::read_variable].
+    /// Prefer to use the more high level [`crate::debugger::Debugger::read_variable`].
     ///
     /// # Parameters
     ///

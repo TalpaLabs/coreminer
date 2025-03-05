@@ -393,3 +393,32 @@ where
 
     serializable_data.serialize(serializer)
 }
+
+#[cfg(test)]
+mod test {
+    use crate::addr::Addr;
+    use crate::disassemble::Disassembly;
+
+    const SOME_MACHINE_CODE: &[u8] = &[
+        0x48, 0x83, 0xec, 0x08, 0x48, 0x8b, 0x05, 0xbd, 0x1f, 0x02, 0x00, 0x48, 0x85, 0xc0, 0x74,
+        0x02, 0xff, 0xd0, 0x48, 0x83, 0xc4, 0x08, 0xc3, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00,
+    ];
+    const BP_INDEXES: &[usize] = &[22, 16, 18];
+    const SOME_ADDR: usize = 0x000055dd73ea200busize;
+
+    #[test]
+    fn test_disassemble_data() {
+        let addr = Addr::from(SOME_ADDR);
+        let _: Disassembly = Disassembly::disassemble(SOME_MACHINE_CODE, addr, BP_INDEXES).unwrap();
+    }
+
+    #[test]
+    fn test_disassemble_data_serialize() {
+        let addr = Addr::from(SOME_ADDR);
+        let dis: Disassembly =
+            Disassembly::disassemble(SOME_MACHINE_CODE, addr, BP_INDEXES).unwrap();
+        let json = serde_json::to_string(&dis).unwrap();
+        println!("{json}");
+    }
+}

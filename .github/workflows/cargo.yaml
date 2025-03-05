@@ -3,10 +3,11 @@ on:
   pull_request:
     branches:
       - '**'
+      - '!master' # that is protected
   push:
     branches:
       - '**'
-      # - '!master'
+      - '!master' # that is protected
 
 env:
   CARGO_TERM_COLOR: always

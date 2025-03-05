@@ -3,11 +3,9 @@ on:
   pull_request:
     branches:
       - '**'
-      - '!master' # that is protected
   push:
     branches:
       - '**'
-      - '!master' # that is protected
 
 env:
   CARGO_TERM_COLOR: always
@@ -42,6 +40,7 @@ jobs:
       - name: cargo test
         run: cargo test --all-features && cargo test --no-default-features
       - name: commit back to repository
+        if: "!contains(github.ref, 'master')"
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           # Optional. Commit message for the created commit.

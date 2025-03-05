@@ -39,7 +39,7 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --all
       - name: cargo test
-        run: cargo test --all-features
+        run: cargo test --all-features && cargo test --no-default-features
       - name: commit back to repository
         uses: stefanzweifel/git-auto-commit-action@v5
         with:

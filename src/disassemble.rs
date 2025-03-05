@@ -405,7 +405,7 @@ mod test {
         0x00, 0x00,
     ];
     const BP_INDEXES: &[usize] = &[22, 16, 18];
-    const SOME_ADDR: usize = 0x000055dd73ea200busize;
+    const SOME_ADDR: usize = 0x0000_55dd_73ea_200b_usize;
 
     #[test]
     fn test_disassemble_data() {

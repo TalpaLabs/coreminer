@@ -1497,7 +1497,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
         let (_, var, frame_info) = self.prepare_variable_access(expression)?;
 
-        dbge.var_write(&var, &frame_info, value.into())?;
+        dbge.var_write(&var, &frame_info, &value.into())?;
 
         Ok(Feedback::Ok)
     }

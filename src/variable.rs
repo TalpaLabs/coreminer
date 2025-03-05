@@ -148,10 +148,9 @@ impl VariableValue {
                 gimli::Value::U32(v) => (*v).into(),
                 gimli::Value::I32(v) => crate::bytes_to_u64(&v.to_ne_bytes()).unwrap(),
                 gimli::Value::F32(v) => crate::bytes_to_u64(&v.to_ne_bytes()).unwrap(),
-                gimli::Value::U64(v) => *v,
+                gimli::Value::U64(v) | gimli::Value::Generic(v) => *v,
                 gimli::Value::I64(v) => crate::bytes_to_u64(&v.to_ne_bytes()).unwrap(),
                 gimli::Value::F64(v) => crate::bytes_to_u64(&v.to_ne_bytes()).unwrap(),
-                gimli::Value::Generic(v) => *v,
             },
         }
     }
@@ -255,7 +254,7 @@ impl Debuggee {
     /// - The symbol does not have a location
     ///
     /// If it fails, the symbol should not be used for either [`Self::var_write`] or [`Self::var_read`].
-    fn check_sym_variable_ok(&self, sym: &OwnedSymbol) -> Result<()> {
+    fn check_sym_variable_ok(sym: &OwnedSymbol) -> Result<()> {
         match sym.kind() {
             SymbolKind::Variable | SymbolKind::Parameter => (),
             _ => return Err(DebuggerError::WrongSymbolKind(sym.kind())),
@@ -317,29 +316,27 @@ impl Debuggee {
         &self,
         sym: &OwnedSymbol,
         frame_info: &FrameInfo,
-        value: VariableValue,
+        value: &VariableValue,
     ) -> Result<()> {
-        self.check_sym_variable_ok(sym)?;
-        let datatype = match self.get_type_for_symbol(sym)? {
-            Some(d) => d,
-            None => return Err(DebuggerError::NoDatatypeFound),
+        Debuggee::check_sym_variable_ok(sym)?;
+        let Some(datatype) =  self.get_type_for_symbol(sym)?  else {
+            return Err(DebuggerError::NoDatatypeFound);
         };
 
-        let loc_attr = sym.location().unwrap();
+        let Some(loc_attr) = sym.location() else {
+            return Err(DebuggerError::SymbolHasNoLocation);
+        };
         let location = self.parse_location(loc_attr, frame_info, sym.encoding())?;
 
         match location {
             gimli::Location::Address { address } => {
-                let byte_size = if let Some(bs) = datatype.byte_size() {
-                    bs
-                } else {
-                    panic!("datatype found but it had no byte_size?")
+                let Some(byte_size) =  datatype.byte_size()  else {
+                    return Err(DebuggerError::SymbolHasNoByteSize);
                 };
                 let value_raw = value.resize_to_bytes(byte_size);
                 let addr: Addr = address.into();
                 trace!("writing to {addr}");
-                let written = mem_write(&value_raw, self.pid, addr)?;
-                assert_eq!(written, value.byte_size());
+                let _written = mem_write(&value_raw, self.pid, addr)?;
             }
             gimli::Location::Register { register } => {
                 set_reg(self.pid, register.try_into()?, value.to_u64())?;
@@ -396,13 +393,14 @@ impl Debuggee {
     /// # }
     /// ```
     pub fn var_read(&self, sym: &OwnedSymbol, frame_info: &FrameInfo) -> Result<VariableValue> {
-        self.check_sym_variable_ok(sym)?;
-        let datatype = match self.get_type_for_symbol(sym)? {
-            Some(d) => d,
-            None => return Err(DebuggerError::NoDatatypeFound),
+        Debuggee::check_sym_variable_ok(sym)?;
+        let Some(datatype) =  self.get_type_for_symbol(sym)?  else {
+            return Err(DebuggerError::NoDatatypeFound)
         };
 
-        let loc_attr = sym.location().unwrap();
+        let Some(loc_attr) = sym.location() else {
+            return Err(DebuggerError::SymbolHasNoLocation);
+        };
         let location = self.parse_location(loc_attr, frame_info, sym.encoding())?;
 
         let value = match location {
@@ -411,17 +409,17 @@ impl Debuggee {
             gimli::Location::Address { address } => {
                 let addr: Addr = address.into();
                 info!("reading var from {addr}");
-                let size = datatype.byte_size().expect("datatype had no byte_size");
+                let Some(size) =  datatype.byte_size()  else {
+                    return Err(DebuggerError::SymbolHasNoByteSize);
+                };
                 let mut buf = vec![0; size];
-                let len = mem_read(&mut buf, self.pid, addr)?;
-                assert_eq!(len, size);
+                let _len = mem_read(&mut buf, self.pid, addr)?;
 
                 VariableValue::Bytes(buf)
             }
             gimli::Location::Register { register } => {
                 VariableValue::Other(get_reg(self.pid, register.try_into()?)? as i64)
             }
-            gimli::Location::Empty => todo!(),
             other => unimplemented!("gimli location of type {other:?} is not implemented"),
         };
 
@@ -443,11 +441,10 @@ where
         gimli::Value::I16(v) => serializer.serialize_i16(*v),
         gimli::Value::U32(v) => serializer.serialize_u32(*v),
         gimli::Value::I32(v) => serializer.serialize_i32(*v),
-        gimli::Value::U64(v) => serializer.serialize_u64(*v),
+        gimli::Value::U64(v) | gimli::Value::Generic(v) => serializer.serialize_u64(*v),
         gimli::Value::I64(v) => serializer.serialize_i64(*v),
         gimli::Value::F32(v) => serializer.serialize_f32(*v),
         gimli::Value::F64(v) => serializer.serialize_f64(*v),
-        gimli::Value::Generic(v) => serializer.serialize_u64(*v),
     }
 }
 
@@ -501,7 +498,7 @@ mod test {
 
         let v = VariableValue::Bytes(vec![0x19, 19, 19]);
         assert_eq!(v.byte_size(), 3);
-        assert_eq!(v.to_u64(), 1250073);
+        assert_eq!(v.to_u64(), 1_250_073);
     }
 
     #[test]

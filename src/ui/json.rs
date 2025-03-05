@@ -22,6 +22,7 @@ impl JsonUI {
     }
 
     pub fn format_feedback(&self, feedback: &Feedback) -> Result<serde_json::Value> {
+    pub fn format_feedback(feedback: &Feedback) -> Result<serde_json::Value> {
         Ok(json!({ "feedback": feedback }))
     }
 }

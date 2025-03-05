@@ -28,6 +28,7 @@ gimli = { version = "0.31.1", default-features = true, features = [
 	"std",
 	"read",
 ] }
+human-panic = { version = "2.0.2", optional = true }
 iced-x86 = "1.21.0"
 nix = { version = "0.29.0", features = [
 	"personality",
@@ -48,8 +49,8 @@ unwind = { version = "0.4.2", features = ["ptrace"] }
 [features]
 default = ["binaries"]
 binaries = ["cli", "cmserve"]
-cli = ["dep:clap", "dep:dialoguer"]
-cmserve = ["dep:clap"]
+cli = ["dep:clap", "dep:dialoguer", "dep:human-panic"]
+cmserve = ["dep:clap", "dep:human-panic"]
 
 [[bin]]
 name = "cm"

@@ -221,7 +221,7 @@ impl Debuggee {
     /// # Returns
     ///
     /// * `Some(usize)` - The parsed datatype reference
-    /// * `None` - If the attribute is not present
+    /// * `None` - If the attribute is not present or of the wrong type
     ///
     /// # Errors
     ///
@@ -234,7 +234,10 @@ impl Debuggee {
             if let gimli::AttributeValue::UnitRef(thing) = a.value() {
                 Some(thing.0)
             } else {
-                warn!("idk");
+                warn!(
+                    "tried to parse a datatype DWARF attribute that was actually a {}",
+                    a.name()
+                );
                 None
             }
         } else {

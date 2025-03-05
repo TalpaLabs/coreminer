@@ -117,6 +117,8 @@ fn setup_logger() {
     let subscriber = tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .without_time()
+        .with_file(false)
+        .with_target(false)
         .finish();
     // use that subscriber to process traces emitted after this point
     tracing::subscriber::set_global_default(subscriber).expect("could not setup logger");

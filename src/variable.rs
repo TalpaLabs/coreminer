@@ -319,7 +319,7 @@ impl Debuggee {
         value: &VariableValue,
     ) -> Result<()> {
         Debuggee::check_sym_variable_ok(sym)?;
-        let Some(datatype) =  self.get_type_for_symbol(sym)?  else {
+        let Some(datatype) = self.get_type_for_symbol(sym)? else {
             return Err(DebuggerError::NoDatatypeFound);
         };
 
@@ -330,7 +330,7 @@ impl Debuggee {
 
         match location {
             gimli::Location::Address { address } => {
-                let Some(byte_size) =  datatype.byte_size()  else {
+                let Some(byte_size) = datatype.byte_size() else {
                     return Err(DebuggerError::SymbolHasNoByteSize);
                 };
                 let value_raw = value.resize_to_bytes(byte_size);
@@ -394,8 +394,8 @@ impl Debuggee {
     /// ```
     pub fn var_read(&self, sym: &OwnedSymbol, frame_info: &FrameInfo) -> Result<VariableValue> {
         Debuggee::check_sym_variable_ok(sym)?;
-        let Some(datatype) =  self.get_type_for_symbol(sym)?  else {
-            return Err(DebuggerError::NoDatatypeFound)
+        let Some(datatype) = self.get_type_for_symbol(sym)? else {
+            return Err(DebuggerError::NoDatatypeFound);
         };
 
         let Some(loc_attr) = sym.location() else {
@@ -409,7 +409,7 @@ impl Debuggee {
             gimli::Location::Address { address } => {
                 let addr: Addr = address.into();
                 info!("reading var from {addr}");
-                let Some(size) =  datatype.byte_size()  else {
+                let Some(size) = datatype.byte_size() else {
                     return Err(DebuggerError::SymbolHasNoByteSize);
                 };
                 let mut buf = vec![0; size];

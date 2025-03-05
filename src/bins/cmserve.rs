@@ -48,14 +48,18 @@ fn example_statuses() {
         Status::SetRegister(coreminer::Register::r9, 133719),
         Status::DumpRegisters,
         Status::Backtrace,
-        Status::Run(Path::new("/bin/ls").into(), vec![c"/etc".into(), c"-la".into()]),
+        Status::Run(
+            Path::new("/bin/ls").into(),
+            vec![c"/etc".into(), c"-la".into()],
+        ),
         Status::GetSymbolsByName("main".to_string()),
         Status::DisassembleAt(Addr::from(1337139usize), 50, false),
     ];
 
     for s in statuses {
-        println!("{}", 
-            serde_json::to_string(&Input{ status: s.clone() }).unwrap()
+        println!(
+            "{}",
+            serde_json::to_string(&Input { status: s.clone() }).unwrap()
         )
     }
 }

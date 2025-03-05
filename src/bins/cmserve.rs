@@ -82,7 +82,7 @@ fn example_feedbacks() {
     for f in feedbacks {
         println!(
             "{}",
-            serde_json::to_string(& json!( { "feedback": f })).unwrap()
+            serde_json::to_string(&JsonUI::format_feedback(f)).unwrap()
         )
     }
 }

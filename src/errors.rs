@@ -69,6 +69,7 @@ pub enum DebuggerError {
     #[error("Could not parse string: {0}")]
     ParseStr(String),
     #[error("Error while getting cli input: {0}")]
+    #[cfg(feature = "cli")]
     CliUiDialogueError(#[from] dialoguer::Error),
     #[error("Error while reading information from the executable file: {0}")]
     Object(#[from] object::Error),
@@ -144,6 +145,7 @@ impl Serialize for DebuggerError {
             DebuggerError::BreakpointIsAlreadyDisabled => "BreakpointAlreadyDisabled",
             DebuggerError::ParseInt(_) => "ParseInt",
             DebuggerError::ParseStr(_) => "ParseString",
+            #[cfg(feature = "cli")]
             DebuggerError::CliUiDialogueError(_) => "UIDialogue",
             DebuggerError::Object(_) => "Object",
             DebuggerError::Dwarf(_) => "DWARF",

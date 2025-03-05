@@ -14,6 +14,7 @@
 //! setting breakpoints, examining memory and registers, and other debugging tasks.
 
 use std::ffi::CString;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -41,7 +42,7 @@ use crate::Addr;
 /// // Create a CLI UI with no default executable
 /// let mut ui = CliUi::build(None).unwrap();
 ///
-/// // Process feedback from the debugger
+/// // Process feedback from the debugger with user input
 /// let status = ui.process(Feedback::Ok).unwrap();
 /// ```
 pub struct CliUi {
@@ -86,6 +87,18 @@ impl CliUi {
     /// let ui = CliUi::build(Some(path)).unwrap();
     /// ```
     pub fn build(default_executable: Option<&Path>) -> Result<Self> {
+        if let Some(exe) = default_executable {
+            if !exe.exists() {
+                return Err(crate::errors::DebuggerError::ExecutableDoesNotExist);
+            }
+            if !exe.is_file() {
+                return Err(crate::errors::DebuggerError::ExecutableIsNotAFile);
+            }
+            // check if it has the executable permission set
+            if !std::fs::metadata(exe)?.permissions().mode() & 0o111 != 0 {
+                return Err(crate::errors::DebuggerError::ExecutableIsNotExecutable);
+            }
+        }
         let ui = CliUi {
             buf_preparsed: Vec::new(),
             buf: String::new(),

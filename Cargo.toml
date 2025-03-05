@@ -19,7 +19,6 @@ categories = [
 ]
 
 [dependencies]
-addr2line = "0.24.2"
 clap = { version = "4.5.27", features = ["derive"] }
 dialoguer = { version = "0.11.0", features = ["history"] }
 gimli = { version = "0.31.1", default-features = true, features = [

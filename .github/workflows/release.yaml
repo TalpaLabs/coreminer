@@ -53,6 +53,8 @@ jobs:
           fetch-depth: 0
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+      - name: cargo test
+        run: cargo test --all-features && cargo test --no-default-features
       - name: Run release-plz
         uses: MarcoIeni/release-plz-action@v0.5
         with:

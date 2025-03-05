@@ -1342,7 +1342,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # // Assume debuggee is already running
     /// #
     /// // Read the value of a variable named "count"
-    /// if let Ok(Feedback::Variable(value)) = debugger.read_variable("count".to_string()) {
+    /// if let Ok(Feedback::Variable(value)) = debugger.read_variable(&"count".to_string()) {
     ///     println!("count = {:?}", value);
     /// }
     /// ```
@@ -1387,7 +1387,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # // Assume debuggee is already running
     /// #
     /// // Set the value of a variable named "count" to 42
-    /// debugger.write_variable("count".to_string(), 42).unwrap();
+    /// debugger.write_variable(&"count".to_string(), 42).unwrap();
     /// ```
     pub fn write_variable(
         &self,

@@ -28,6 +28,8 @@
 //! ## Example Usage
 //!
 //! ```rust,no_run
+//! #[cfg(feature = "cli")]
+//! # mod featguard {
 //! use coreminer::debugger::Debugger;
 //! use coreminer::ui::cli::CliUi;
 //!
@@ -38,6 +40,8 @@
 //!     debugger.cleanup()?;
 //!     Ok(())
 //! }
+//!
+//! # }
 //! ```
 
 #![warn(missing_docs)]

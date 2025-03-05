@@ -63,6 +63,8 @@ use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 /// Basic usage of the debugger:
 ///
 /// ```no_run
+/// #[cfg(feature = "cli")]
+/// # mod featguard { fn _do_thing() {
 /// use coreminer::debugger::Debugger;
 /// use coreminer::ui::cli::CliUi;
 /// use coreminer::errors::Result;
@@ -84,11 +86,16 @@ use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 ///
 ///     Ok(())
 /// }
+///
+/// # }}
 /// ```
 ///
 /// Theoretically, automated usage of the debugger functions is also possible:
 ///
+///
 /// ```no_run
+/// #[cfg(feature = "cli")]
+/// # mod featguard { fn _do_thing() {
 /// use coreminer::debugger::Debugger;
 /// use coreminer::ui::cli::CliUi;
 /// use coreminer::errors::Result;
@@ -126,6 +133,8 @@ use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 ///
 ///     Ok(())
 /// }
+///
+/// # }}
 /// ```
 pub struct Debugger<'executable, UI: DebuggerUI> {
     pub(crate) debuggee: Option<Debuggee>,
@@ -152,12 +161,17 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// use coreminer::debugger::Debugger;
     /// use coreminer::ui::cli::CliUi;
     ///
     /// let ui = CliUi::build(None).unwrap();
     /// let debugger = Debugger::build(ui).unwrap();
+    ///
+    /// # }}
     /// ```
     pub fn build(ui: UI) -> Result<Self> {
         Ok(Debugger {
@@ -250,7 +264,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
@@ -265,6 +282,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///     Ok(other) => println!("something else happened: {other}"), // impossible
     ///     Err(e) => eprintln!("Error: {}", e),
     /// }
+    ///
+    /// # }}
     /// ```
     pub fn wait_signal(&self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -325,7 +344,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use nix::sys::wait::{WaitPidFlag, WaitStatus};
@@ -345,6 +367,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///     WaitStatus::Stopped(_, signal) => println!("Process stopped by signal {:?}", signal),
     ///     _ => println!("Other status change"),
     /// }
+    ///
+    /// # }}
     /// ```
     pub fn wait(&self, options: &[WaitPidFlag]) -> Result<WaitStatus> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -376,7 +400,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
@@ -388,6 +415,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// debugger.run_debugger().unwrap();
     ///
     /// debugger.cleanup().unwrap();
+    ///
+    /// # }}
     /// ```
     pub fn run_debugger(&mut self) -> Result<()> {
         if self.debuggee.as_ref().is_some() {
@@ -463,7 +492,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use nix::sys::signal::Signal;
@@ -477,6 +509,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// // Continue execution and deliver a SIGINT signal
     /// debugger.cont(Some(Signal::SIGINT)).unwrap();
+    ///
+    /// # }}
     /// ```
     pub fn cont(&mut self, sig: Option<Signal>) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -500,7 +534,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
@@ -514,6 +551,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///     println!("RSP: {:#x}", regs.rsp);
     ///     println!("RAX: {:#x}", regs.rax);
     /// }
+    ///
+    /// # }}
     /// ```
     pub fn dump_regs(&self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -538,7 +577,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
@@ -547,6 +589,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// #
     /// // Clean up resources at the end of debugging
     /// debugger.cleanup().unwrap();
+    ///
+    /// # }}
     /// ```
     pub fn cleanup(&mut self) -> Result<()> {
         if let Some(dbge) = &self.debuggee {
@@ -575,7 +619,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::addr::Addr;
@@ -594,6 +641,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// // Set a breakpoint at the relative address 0x1000
     /// let base = debugger.get_current_addr().unwrap();
     /// debugger.set_bp(base + 0x1000).unwrap();
+    ///
+    /// # }}
     /// ```
     pub fn set_bp(&mut self, addr: Addr) -> Result<Feedback> {
         let dbge = self.debuggee.as_mut().ok_or(DebuggerError::NoDebugee)?;
@@ -623,7 +672,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::addr::Addr;
@@ -638,6 +690,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// // Remove a breakpoint at the relative address 0x1000
     /// let base = debugger.get_current_addr().unwrap();
     /// debugger.del_bp(base + 0x1000).unwrap();
+    ///
+    /// # }}
     /// ```
     pub fn del_bp(&mut self, addr: Addr) -> Result<Feedback> {
         let dbge = self.debuggee.as_mut().ok_or(DebuggerError::NoDebugee)?;
@@ -693,7 +747,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
@@ -708,6 +765,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// for _ in 0..5 {
     ///     debugger.single_step().unwrap();
     /// }
+    ///
+    /// # }}
     /// ```
     pub fn single_step(&mut self) -> Result<Feedback> {
         if self.go_back_step_over_bp()? {
@@ -751,7 +810,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
@@ -761,6 +823,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// #
     /// // Step out of the current function
     /// debugger.step_out().unwrap();
+    ///
+    /// # }}
     /// ```
     pub fn step_out(&mut self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -920,7 +984,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::addr::Addr;
@@ -936,6 +1003,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///         println!("{}: {} {}", addr, if *has_bp { "*" } else { " " }, content[0].0);
     ///     }
     /// }
+    ///
+    /// # }}
     /// ```
     pub fn disassemble_at(&self, addr: Addr, len: usize, literal: bool) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -967,7 +1036,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
@@ -982,6 +1054,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///         println!("Found main at: {:?}", symbol.low_addr());
     ///     }
     /// }
+    ///
+    /// # }}
     /// ```
     pub fn get_symbol_by_name(&self, name: impl Display) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -1106,7 +1180,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
@@ -1116,6 +1193,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// #
     /// // Step into the next function call
     /// debugger.step_into().unwrap();
+    ///
+    /// # }}
     /// ```
     #[allow(clippy::missing_panics_doc)] // this function cannot panic
     pub fn step_into(&mut self) -> Result<Feedback> {
@@ -1184,7 +1263,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
@@ -1199,6 +1281,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///         println!("#{} {} at {:?}", i, frame.name.as_deref().unwrap_or("??"), frame.addr);
     ///     }
     /// }
+    ///
+    /// # }}
     /// ```
     pub fn backtrace(&self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -1223,7 +1307,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
@@ -1234,6 +1321,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// // Get the current instruction pointer
     /// let curr_addr = debugger.get_current_addr().unwrap();
     /// println!("Current IP: {}", curr_addr);
+    ///
+    /// # }}
     /// ```
     pub fn get_current_addr(&self) -> Result<Addr> {
         Ok((self.get_reg(Register::rip)?).into())
@@ -1332,7 +1421,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
@@ -1345,6 +1437,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// if let Ok(Feedback::Variable(value)) = debugger.read_variable(&"count".to_string()) {
     ///     println!("count = {:?}", value);
     /// }
+    ///
+    /// # }}
     /// ```
     pub fn read_variable(&self, expression: &VariableExpression) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -1378,7 +1472,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// #
@@ -1388,6 +1485,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// #
     /// // Set the value of a variable named "count" to 42
     /// debugger.write_variable(&"count".to_string(), 42).unwrap();
+    ///
+    /// # }}
     /// ```
     pub fn write_variable(
         &self,
@@ -1423,7 +1522,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::addr::Addr;
@@ -1437,6 +1539,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// if let Ok(Feedback::Word(value)) = debugger.read_mem(Addr::from(0x1000usize)) {
     ///     println!("Memory at 0x1000: {:#x}", value);
     /// }
+    ///
+    /// # }}
     /// ```
     pub fn read_mem(&self, addr: Addr) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -1467,7 +1571,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::addr::Addr;
@@ -1478,6 +1585,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// #
     /// // Write the value 0x42 to memory at address 0x1000
     /// debugger.write_mem(Addr::from(0x1000usize), 0x42).unwrap();
+    ///
+    /// # }}
     /// ```
     pub fn write_mem(&self, addr: Addr, value: Word) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -1506,7 +1615,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::Register;
@@ -1518,6 +1630,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// // Get the value of the rax register
     /// let rax = debugger.get_reg(Register::rax).unwrap();
     /// println!("RAX: {:#x}", rax);
+    ///
+    /// # }}
     /// ```
     pub fn get_reg(&self, r: Register) -> Result<u64> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -1545,7 +1659,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::Register;
@@ -1556,6 +1673,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// #
     /// // Set the value of the rax register to 0x42
     /// debugger.set_reg(Register::rax, 0x42).unwrap();
+    ///
+    /// # }}
     /// ```
     pub fn set_reg(&self, r: Register, v: u64) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -1578,7 +1697,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
@@ -1591,6 +1713,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// if let Ok(Feedback::Stack(stack)) = debugger.get_stack() {
     ///     println!("Stack: {}", stack);
     /// }
+    ///
+    /// # }}
     /// ```
     pub fn get_stack(&self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -1614,7 +1738,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use coreminer::feedback::Feedback;
@@ -1627,6 +1754,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// if let Ok(Feedback::ProcessMap(map)) = debugger.get_process_map() {
     ///     println!("{:?}", map);
     /// }
+    ///
+    /// # }}
     /// ```
     pub fn get_process_map(&self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -1662,7 +1791,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
+    ///
     /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
     /// # use coreminer::debugger::Debugger;
     /// # use coreminer::ui::cli::CliUi;
     /// # use std::path::Path;
@@ -1680,6 +1812,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// ];
     ///
     /// debugger.run(program, &args).unwrap();
+    ///
+    /// # }}
     /// ```
     pub fn run(
         &mut self,

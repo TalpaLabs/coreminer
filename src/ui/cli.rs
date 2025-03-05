@@ -331,6 +331,7 @@ impl DebuggerUI for CliUi {
                     ));
                 }
                 if !self.ensure_args("run", 1) {
+                    info!("For the run command, you can set a default executable when you launch the coreminer");
                     continue;
                 }
 

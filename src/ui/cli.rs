@@ -1,3 +1,18 @@
+//! # Command-Line Interface
+//!
+//! Provides a basic command-line interface for interacting with the Coreminer debugger.
+//!
+//! This module implements the [`DebuggerUI`] trait to provide an interactive
+//! command-line interface with features such as:
+//!
+//! - Command history and recall
+//! - Parsing hex values for addresses and register values
+//! - Command validation and error messages
+//! - Automatic execution via stepper functionality
+//!
+//! The CLI interface accepts commands for controlling program execution,
+//! setting breakpoints, examining memory and registers, and other debugging tasks.
+
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -10,6 +25,25 @@ use crate::errors::Result;
 use crate::feedback::Feedback;
 use crate::Addr;
 
+/// Command-line interface for the debugger
+///
+/// Implements the [`DebuggerUI`] trait to provide an interactive
+/// command-line interface for the debugger.
+///
+/// # Examples
+///
+/// ```no_run
+/// use coreminer::ui::cli::CliUi;
+/// use coreminer::ui::DebuggerUI;
+/// use coreminer::feedback::Feedback;
+/// use std::path::Path;
+///
+/// // Create a CLI UI with no default executable
+/// let mut ui = CliUi::build(None).unwrap();
+///
+/// // Process feedback from the debugger
+/// let status = ui.process(Feedback::Ok).unwrap();
+/// ```
 pub struct CliUi {
     buf: String,
     buf_preparsed: Vec<String>,
@@ -19,6 +53,38 @@ pub struct CliUi {
 }
 
 impl CliUi {
+    /// Creates a new CLI UI instance
+    ///
+    /// # Parameters
+    ///
+    /// * `default_executable` - Optional path to a default executable to run
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(CliUi)` - A new CLI UI instance
+    /// * `Err(DebuggerError)` - If creation failed
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    ///
+    /// - The path of the executable does not exist
+    /// - The path of the executable is not a file
+    /// - The path of the executable is not executable
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use coreminer::ui::cli::CliUi;
+    /// use std::path::Path;
+    ///
+    /// // Create a CLI UI with no default executable
+    /// let ui = CliUi::build(None).unwrap();
+    ///
+    /// // Create a CLI UI with a default executable
+    /// let path = Path::new("/bin/ls");
+    /// let ui = CliUi::build(Some(path)).unwrap();
+    /// ```
     pub fn build(default_executable: Option<&Path>) -> Result<Self> {
         let ui = CliUi {
             buf_preparsed: Vec::new(),
@@ -30,6 +96,31 @@ impl CliUi {
         Ok(ui)
     }
 
+    /// Gets input from the user
+    ///
+    /// Uses the [`dialoguer`] crate to get input with history support.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If input was successfully read
+    /// * `Err(DebuggerError)` - If input could not be read
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    ///
+    /// - The dialoguer library fails to get input
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use std::path::Path;
+    /// # let mut ui = CliUi::build(None).unwrap();
+    /// if let Err(e) = ui.get_input() {
+    ///     eprintln!("Failed to get input: {}", e);
+    /// }
+    /// ```
     pub fn get_input(&mut self) -> Result<()> {
         self.buf = dialoguer::Input::with_theme(&dialoguer::theme::ColorfulTheme::default())
             .history_with(&mut self.history)
@@ -44,6 +135,21 @@ impl CliUi {
         Ok(())
     }
 
+    /// Parses a number from the command line arguments
+    ///
+    /// Supports both `0x` prefixed and non-prefixed hexadecimal values.
+    ///
+    /// Returns `None` if parsing did not work or the given `index` is more than the length of the
+    /// internal buffer [`Self::buf_preparsed`].
+    ///
+    /// # Parameters
+    ///
+    /// * `index` - The index of the argument to parse
+    ///
+    /// # Returns
+    ///
+    /// * `Some(u64)` - The parsed number
+    /// * `None` - If the number could not be parsed or the index is out of bounds
     fn get_number(&self, index: usize) -> Option<u64> {
         if index >= self.buf_preparsed.len() {
             return None;
@@ -64,6 +170,17 @@ impl CliUi {
         }
     }
 
+    /// Ensures a command has the correct number of arguments
+    ///
+    /// # Parameters
+    ///
+    /// * `cmd` - The command name for error reporting
+    /// * `expected` - The expected number of arguments (not including the command itself)
+    ///
+    /// # Returns
+    ///
+    /// * `true` - If the command has enough arguments
+    /// * `false` - If the command does not have enough arguments
     fn ensure_args(&self, cmd: &str, expected: usize) -> bool {
         if self.buf_preparsed.len() < expected + 1 {
             error!("{} requires {} argument(s)", cmd, expected);
@@ -326,10 +443,24 @@ impl DebuggerUI for CliUi {
     }
 }
 
+/// Checks if a command matches any of the provided prefixes
+///
+/// # Parameters
+///
+/// * `cmd` - The command to check
+/// * `prefixes` - The prefixes to match against
+///
+/// # Returns
+///
+/// * `true` - If the command matches any prefix
+/// * `false` - If the command does not match any prefix
 fn string_matches(cmd: &str, prefixes: &[&str]) -> bool {
     prefixes.iter().any(|a| cmd == *a)
 }
 
+/// Shows help information for the debugger commands
+///
+/// Prints a list of all available commands and their usage to stdout.
 fn show_help() {
     println!("\nCoreminer Debugger Help:\n");
     println!("  run PATH [ARGS]                    - Run program at PATH with optional arguments");

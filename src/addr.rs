@@ -220,4 +220,12 @@ mod test {
         assert_eq!(a.u64(), 0x1234u64);
         assert_eq!(format!("{a}"), "0x0000000000001234");
     }
+
+    #[test]
+    fn test_addr_serialize_deserialize() {
+        let a = Addr::from(0x1234usize);
+        let json = serde_json::to_string(&a).unwrap();
+        let b: Addr = serde_json::from_str(&json).unwrap();
+        assert_eq!(a, b);
+    }
 }

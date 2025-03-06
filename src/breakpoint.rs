@@ -11,7 +11,7 @@
 //! execution.
 
 use nix::unistd::Pid;
-use tracing::trace;
+use tracing::{error, trace};
 
 use crate::errors::{DebuggerError, Result};
 use crate::{mem_read_word, mem_write_word, Addr};
@@ -241,8 +241,9 @@ impl Drop for Breakpoint {
     /// the target process is no longer accessible.
     fn drop(&mut self) {
         if self.is_enabled() {
-            self.disable()
-                .expect("could not disable breakpoint while dropping");
+            if let Err(e) = self.disable() {
+                error!("{e}");
+            }
         }
     }
 }

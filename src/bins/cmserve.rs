@@ -60,7 +60,6 @@ fn main() -> Result<(), DebuggerError> {
     }
     if args.example_feedbacks || args.example_statuses {
         exit(0);
-
     }
 
     let ui = JsonUI::build()?;

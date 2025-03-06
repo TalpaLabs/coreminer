@@ -214,6 +214,14 @@ Coreminer is built around several key components:
 - **Stack Unwinding**: Using libunwind
 - **Disassembly**: Powered by iced-x86
 
+## Examples
+
+The [examples](./examples/) directory contains a few small programs that serve
+as debuggees. You can try coreminer on them and see what happens.
+
+They can be compiled in debug or release mode with [`build-dummy.sh`](./build-dummy.sh) and
+[`build-release.sh`](./build-release.sh).
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

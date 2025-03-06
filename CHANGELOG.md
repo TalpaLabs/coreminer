@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.1](https://github.com/debugger-bs/coreminer/compare/v0.2.0...v0.2.1)
+
+### 🐛 Bug Fixes
+
+- *(cmserve)* Allow to use both example flags at once - ([48f6c05](https://github.com/debugger-bs/coreminer/commit/48f6c05badf103dd11e554139acc1360deb26560))
+- Dont panic when dropping the breakpoint fails - ([ace3417](https://github.com/debugger-bs/coreminer/commit/ace34172f3dcdf3ed2c574a9ba26866a5e0586c7))
+
+### 📚 Documentation
+
+- Add section about cmserve to the readme - ([8a3af52](https://github.com/debugger-bs/coreminer/commit/8a3af5204a07238687f3e6c6246084370defddaf))
+
+### ⚙️ Miscellaneous Tasks
+
+- Update dummy compile scripts - ([185fb75](https://github.com/debugger-bs/coreminer/commit/185fb7584340aa48da2596fa6c99f905491508f5))
+- Add how_many_fds.c example - ([f5c8beb](https://github.com/debugger-bs/coreminer/commit/f5c8bebb328d22f96c356982f6e50f425b883593))
+- Remove the weird unreleased section from changelog - ([b452be1](https://github.com/debugger-bs/coreminer/commit/b452be1e8d90b940d0e5a63e01c4c0718ce74e2d))
+- Run cargo ci on master but dont commit back - ([8a40169](https://github.com/debugger-bs/coreminer/commit/8a40169ae6a073297582410b44052a65656a3332))
+
+
 ## [Unreleased]
 
 ## [0.2.0](https://github.com/debugger-bs/coreminer/compare/v0.1.1...v0.2.0)

@@ -515,7 +515,7 @@ fn path_to_cstring(path: &Path) -> Option<CString> {
     match CString::new(path.as_os_str().as_bytes()) {
         Err(e) => {
             warn!("{e}");
-            return None;
+            None
         }
         Ok(s) => Some(s),
     }

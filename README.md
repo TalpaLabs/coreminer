@@ -192,7 +192,7 @@ exit
 
 From `v0.2.0`, Coreminer includes a second binary: `cmserve`. `cmserve` provides
 all internal functionalities of the Coreminer debugger, but can be
-scripted. This enables projects such as [hardhat](https://github.com/debugger-bd/hardhat)
+scripted. This enables projects such as [hardhat](https://github.com/debugger-bs/hardhat)
 to build a better user interface for Coreminer.
 
 To see some example inputs (statuses) and outputs (feedbacks), you can use

@@ -14,6 +14,7 @@
 //! setting breakpoints, examining memory and registers, and other debugging tasks.
 
 use std::ffi::CString;
+use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -326,9 +327,11 @@ impl DebuggerUI for CliUi {
                 }
             } else if string_matches(cmd, &["run"]) {
                 if self.buf_preparsed.len() == 1 && self.default_executable.is_some() {
+                    // safe because we just checked that its some
+                    let default_executable = self.default_executable.as_ref().unwrap();
                     return Ok(Status::Run(
-                        self.default_executable.clone().unwrap(),
-                        Vec::new(),
+                        default_executable.into(),
+                        vec![path_to_cstring_or_empty(default_executable)],
                     ));
                 }
                 if !self.ensure_args("run", 1) {
@@ -338,7 +341,7 @@ impl DebuggerUI for CliUi {
 
                 match PathBuf::from_str(self.buf_preparsed[1].as_str()) {
                     Ok(path) => {
-                        let mut args: Vec<CString> = Vec::new();
+                        let mut args: Vec<CString> = vec![path_to_cstring_or_empty(&path)];
 
                         // Try to create CStrings for the arguments
                         args.push(match CString::new(self.buf_preparsed[0].clone()) {
@@ -502,6 +505,20 @@ fn show_help() {
     println!("  q, quit, exit                      - Exit the debugger");
     println!("  help, h, ?                         - Show this help");
     println!("\nAddresses and values should be in hexadecimal (with or without 0x prefix)");
+}
+
+fn path_to_cstring_or_empty(path: &Path) -> CString {
+    path_to_cstring(path).unwrap_or(CString::new([]).expect("could not make an empty CString"))
+}
+
+fn path_to_cstring(path: &Path) -> Option<CString> {
+    match CString::new(path.as_os_str().as_bytes()) {
+        Err(e) => {
+            warn!("{e}");
+            return None;
+        }
+        Ok(s) => Some(s),
+    }
 }
 
 #[cfg(test)]

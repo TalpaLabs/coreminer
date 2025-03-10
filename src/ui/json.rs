@@ -128,18 +128,18 @@ impl JsonUI {
 }
 
 impl DebuggerUI for JsonUI {
-    fn process(&mut self, feedback: crate::feedback::Feedback) -> Result<super::Status> {
-        println!("{}", json!({ "feedback": feedback }));
-
+    fn process(&mut self, mut feedback: crate::feedback::Feedback) -> Result<super::Status> {
         let mut reader = BufReader::new(std::io::stdin());
         let mut buf = Vec::new();
         loop {
+            println!("{}", Self::format_feedback(&feedback)?);
             buf.clear();
             reader.read_until(b'\n', &mut buf)?;
             let input: Input = match serde_json::from_slice(&buf) {
                 Ok(a) => a,
                 Err(e) => {
                     error!("{e}");
+                    feedback = Feedback::Error(e.into());
                     continue;
                 }
             };

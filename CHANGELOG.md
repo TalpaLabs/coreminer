@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.2](https://github.com/debugger-bs/coreminer/compare/v0.2.1...v0.2.2)
+
+### 🐛 Bug Fixes
+
+- *(baseui)* Argv[0] was not set properly #36 - ([52403f1](https://github.com/debugger-bs/coreminer/commit/52403f1ec5b3097cd777c7b09c7f5fdb68ed3773))
+- *(cmserve)* Feedback example printed a result - ([cf69a08](https://github.com/debugger-bs/coreminer/commit/cf69a08ef4b9c378f40c1e8a244b58ef055b295b))
+
+### 📚 Documentation
+
+- Add section about the examples - ([c9f35a4](https://github.com/debugger-bs/coreminer/commit/c9f35a4e938c0bfed92b4a5460a030e4a92d3ace))
+- Fix typo in link of readme - ([d6ff688](https://github.com/debugger-bs/coreminer/commit/d6ff6889ae43ff798c09d76f899c5de132580661))
+
+### ⚙️ Miscellaneous Tasks
+
+- Automatic Rust CI changes - ([cbddcd0](https://github.com/debugger-bs/coreminer/commit/cbddcd01e5fe8d181e1d5d90e14fd2fca54b86dc))
+- Add print_args example - ([65403d9](https://github.com/debugger-bs/coreminer/commit/65403d9ff532518e4b882f2fb33ead7787640579))
+
+
 ## [0.2.1](https://github.com/debugger-bs/coreminer/compare/v0.2.0...v0.2.1)
 
 ### 🐛 Bug Fixes

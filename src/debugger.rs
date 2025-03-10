@@ -33,6 +33,7 @@ use nix::sys::ptrace;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::execv;
+use steckrs::PluginManager;
 use tracing::{debug, error, info, trace, warn};
 
 use crate::breakpoint::Breakpoint;
@@ -42,6 +43,7 @@ use crate::debuggee::Debuggee;
 use crate::disassemble::Disassembly;
 use crate::dwarf_parse::FrameInfo;
 use crate::errors::{DebuggerError, Result};
+use crate::extension_points::PreSignalHandler;
 use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Status};
 use crate::variable::{VariableExpression, VariableValue};
@@ -141,6 +143,7 @@ pub struct Debugger<'executable, UI: DebuggerUI> {
     pub(crate) ui: UI,
     stored_obj_data: Option<object::File<'executable>>,
     stored_obj_data_raw: Vec<u8>,
+    plugins: PluginManager,
 }
 
 impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
@@ -179,6 +182,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             ui,
             stored_obj_data: None,
             stored_obj_data_raw: Vec::new(),
+            plugins: PluginManager::new(),
         })
     }
 
@@ -288,7 +292,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     pub fn wait_signal(&self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
-        loop {
+        'waiting: loop {
             match self.wait(&[])? {
                 WaitStatus::Exited(_, exit_code) => {
                     return Ok(Feedback::Exit(exit_code));
@@ -301,6 +305,17 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                     // Get and handle other signals as before
                     let siginfo = ptrace::getsiginfo(dbge.pid)?;
                     let sig = Signal::try_from(siginfo.si_signo)?;
+
+                    for hook in self
+                        .plugins
+                        .hook_registry()
+                        .get_by_extension_point::<PreSignalHandler>()
+                    {
+                        if (hook.inner().pre_handle_signal(&siginfo, &sig)) {
+                            continue 'waiting;
+                        }
+                    }
+
                     match sig {
                         Signal::SIGTRAP => {
                             self.handle_sigtrap(sig, siginfo)?;

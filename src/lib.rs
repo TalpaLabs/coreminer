@@ -83,6 +83,7 @@ pub mod debugger;
 pub mod disassemble;
 pub mod dwarf_parse;
 pub mod errors;
+pub mod extension_points;
 pub mod feedback;
 pub mod memorymap;
 pub mod stack;

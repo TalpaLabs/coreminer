@@ -56,6 +56,7 @@ fn setup() {
         .without_time()
         .with_file(false)
         .with_target(false)
+        .with_writer(std::io::stderr)
         .finish();
     // use that subscriber to process traces emitted after this point
     tracing::subscriber::set_global_default(subscriber).expect("could not setup logger");

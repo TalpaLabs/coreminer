@@ -311,7 +311,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         .hook_registry()
                         .get_by_extension_point::<PreSignalHandler>()
                     {
-                        if (hook.inner().pre_handle_signal(&siginfo, &sig)) {
+                        if hook.inner().pre_handle_signal(&siginfo, &sig) {
                             continue 'waiting;
                         }
                     }

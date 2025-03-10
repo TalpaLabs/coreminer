@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.3](https://github.com/debugger-bs/coreminer/compare/v0.2.2...v0.2.3)
+
+### ⛰️ Features
+
+- *(cmserve)* Print a feedback::Error on bad input #38 - ([83c11c7](https://github.com/debugger-bs/coreminer/commit/83c11c76216f487faba033db3cd006ffcd773c24))
+- Log to stderr by default #38 - ([4b1b36d](https://github.com/debugger-bs/coreminer/commit/4b1b36d69d2942745ade269d5101f56ca0eca264))
+
+### 🐛 Bug Fixes
+
+- *(baseui)* Argv was set wrong with arguments #39 - ([a32ac8d](https://github.com/debugger-bs/coreminer/commit/a32ac8d59e10405470463b6cc60f20757864af1e))
+
+
 ## [0.2.2](https://github.com/debugger-bs/coreminer/compare/v0.2.1...v0.2.2)
 
 ### 🐛 Bug Fixes

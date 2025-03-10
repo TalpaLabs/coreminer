@@ -343,15 +343,6 @@ impl DebuggerUI for CliUi {
                     Ok(path) => {
                         let mut args: Vec<CString> = vec![path_to_cstring_or_empty(&path)];
 
-                        // Try to create CStrings for the arguments
-                        args.push(match CString::new(self.buf_preparsed[0].clone()) {
-                            Ok(cs) => cs,
-                            Err(e) => {
-                                error!("Error creating CString: {}", e);
-                                continue;
-                            }
-                        });
-
                         for arg in self.buf_preparsed.iter().skip(2) {
                             match CString::new(arg.clone()) {
                                 Ok(cs) => args.push(cs),

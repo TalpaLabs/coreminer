@@ -43,7 +43,7 @@ use crate::debuggee::Debuggee;
 use crate::disassemble::Disassembly;
 use crate::dwarf_parse::FrameInfo;
 use crate::errors::{DebuggerError, Result};
-use crate::extension_points::PreSignalHandler;
+use crate::extension_points::{EOnSigTrap, EPPreSignalHandler};
 use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Status};
 use crate::variable::{VariableExpression, VariableValue};
@@ -309,7 +309,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                     for hook in self
                         .plugins
                         .hook_registry()
-                        .get_by_extension_point::<PreSignalHandler>()
+                        .get_by_extension_point::<EPPreSignalHandler>()
                     {
                         if hook.inner().pre_handle_signal(&siginfo, &sig) {
                             continue 'waiting;
@@ -1110,6 +1110,17 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             TRAP_TRACE => trace!("TRAP_TRACE"), // single stepping
             _ => warn!("Strange SIGTRAP code: {}", siginfo.si_code),
         }
+
+        for hook in self
+            .plugins
+            .hook_registry()
+            .get_by_extension_point::<EOnSigTrap>()
+        {
+            if let Err(e) = hook.inner().handle_sigtrap(&siginfo, &sig) {
+                warn!("Hook '{}' failed: {e}", hook.name());
+            }
+        }
+
         Ok(())
     }
 

@@ -97,6 +97,7 @@ pub enum Feedback {
 
     /// Internal feedback for controls
     #[serde(skip)]
+    #[allow(private_interfaces)] // this specific part isnt supposed to be used by anyone else
     Internal(InternalFeedback),
 }
 

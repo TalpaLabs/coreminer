@@ -159,7 +159,7 @@ pub enum DebuggerError {
         "Tried to disassemble a line that we had already disassembled for this iteration: {0}"
     )]
     AlreadyDisassembled(Addr),
-    #[error("The UI used {:?}", crate::ui::Status::PluginContinue)]
+    #[error("The UI used {:?}", crate::feedback::Status::PluginContinue)]
     UiUsedPluginContinue,
 }
 

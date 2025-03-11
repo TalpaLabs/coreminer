@@ -34,8 +34,6 @@ use nix::sys::ptrace;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::execv;
-use steckrs::hook::{ExtensionPoint, Hook};
-use steckrs::PluginManager;
 use tracing::{debug, error, info, trace, warn};
 
 use crate::breakpoint::Breakpoint;
@@ -51,8 +49,14 @@ use crate::variable::{VariableExpression, VariableValue};
 use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 
 // plugin stuff
-use crate::for_hooks;
+use crate::for_hooks; // does nothing without the feature
+#[cfg(feature = "plugins")]
 use crate::plugins::extension_points::EPreSignalHandler;
+#[cfg(feature = "plugins")]
+use steckrs::{
+    hook::{ExtensionPoint, Hook},
+    PluginManager,
+};
 
 /// Manages the debugging session and coordinates between the UI and debuggee
 ///
@@ -148,6 +152,7 @@ pub struct Debugger<'executable, UI: DebuggerUI> {
     pub(crate) ui: UI,
     stored_obj_data: Option<object::File<'executable>>,
     stored_obj_data_raw: Vec<u8>,
+    #[cfg(feature = "plugins")]
     plugins: Arc<Mutex<PluginManager>>,
 }
 
@@ -187,6 +192,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             ui,
             stored_obj_data: None,
             stored_obj_data_raw: Vec::new(),
+            #[cfg(feature = "plugins")]
             plugins: Arc::new(PluginManager::new().into()),
         })
     }
@@ -1878,6 +1884,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Ok)
     }
 
+    #[cfg(feature = "plugins")]
     pub(crate) fn hook_feedback_loop<F, E: ExtensionPoint>(
         &mut self,
         hook: &Hook<E>,
@@ -1903,6 +1910,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         }
     }
 
+    #[cfg(feature = "plugins")]
     fn plugins(&self) -> Arc<Mutex<PluginManager>> {
         self.plugins.clone()
     }

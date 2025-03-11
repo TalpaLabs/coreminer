@@ -9,6 +9,7 @@ use coreminer::ui::json::{Input, JsonUI};
 
 use clap::Parser;
 use coreminer::ui::Status;
+use serde::de::Error;
 use tracing::trace;
 
 #[derive(Parser, Debug)]
@@ -103,6 +104,9 @@ fn example_feedbacks() {
         Feedback::Variable(coreminer::variable::VariableValue::Bytes(vec![
             19, 13, 13, 13, 17,
         ])),
+        Feedback::Error(DebuggerError::BreakpointIsAlreadyEnabled),
+        Feedback::Error(DebuggerError::UnimplementedRegister(1337)),
+        Feedback::Error(DebuggerError::Json(serde_json::Error::custom("test err"))),
     ];
 
     for f in feedbacks {

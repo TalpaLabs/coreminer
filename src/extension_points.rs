@@ -1,15 +1,11 @@
-use std::ffi::CString;
-use std::path::Path;
-
 use steckrs::extension_point;
 
 use nix::libc::siginfo_t;
 use nix::sys::signal::Signal;
 
-use crate::debugger::Debugger;
 use crate::errors::Result;
 use crate::feedback::Feedback;
-use crate::ui::{DebuggerUI, Status};
+use crate::ui::Status;
 
 /// # Examples
 /// ```ignore

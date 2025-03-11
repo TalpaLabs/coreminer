@@ -335,6 +335,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         | Signal::SIGPIPE
                         | Signal::SIGSTOP
                         | Signal::SIGWINCH
+                        | Signal::SIGTERM
                         | Signal::SIGILL => {
                             self.handle_important_signal(sig, siginfo)?;
                             return Ok(Feedback::Ok);

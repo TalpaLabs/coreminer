@@ -1,6 +1,6 @@
 #!/bin/bash
 mkdir -p ./target/release
-DUMMYS=( "dummy" "dummy2" "dummy3" "how_many_fds" "print_args")
+DUMMYS=( "dummy" "dummy2" "dummy3" "how_many_fds" "print_args" "sleeper")
 
 mkdir -p ./target/release/
 for DUMMY in ${DUMMYS[*]}; do

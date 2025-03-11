@@ -43,13 +43,21 @@ pub type Result<T> = std::result::Result<T, DebuggerError>;
 ///     Ok(())
 /// }
 /// ```
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Serialize)]
 #[allow(missing_docs)] // its just error types
 pub enum DebuggerError {
     #[error("Os error: {0}")]
-    Os(#[from] nix::Error),
+    Os(
+        #[serde(serialize_with = "ser_err")]
+        #[from]
+        nix::Error,
+    ),
     #[error("Io error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(
+        #[serde(serialize_with = "ser_err")]
+        #[from]
+        std::io::Error,
+    ),
     #[error("Given Executable does not exist")]
     ExecutableDoesNotExist,
     #[error("Given Executable is not a file")]
@@ -57,7 +65,11 @@ pub enum DebuggerError {
     #[error("Given Executable is not executable (try chmod +x)")]
     ExecutableIsNotExecutable,
     #[error("Could not convert to CString: {0}")]
-    CStringConv(#[from] std::ffi::NulError),
+    CStringConv(
+        #[serde(serialize_with = "ser_err")]
+        #[from]
+        std::ffi::NulError,
+    ),
     #[error("No debuggee configured")]
     NoDebugee,
     #[error("Tried to enable breakpoint again")]
@@ -65,26 +77,50 @@ pub enum DebuggerError {
     #[error("Tried to disable breakpoint again")]
     BreakpointIsAlreadyDisabled,
     #[error("Could not parse integer: {0}")]
-    ParseInt(#[from] std::num::ParseIntError),
+    ParseInt(
+        #[serde(serialize_with = "ser_err")]
+        #[from]
+        std::num::ParseIntError,
+    ),
     #[error("Could not parse string: {0}")]
     ParseStr(String),
     #[error("Error while getting cli input: {0}")]
     #[cfg(feature = "cli")]
-    CliUiDialogueError(#[from] dialoguer::Error),
+    CliUiDialogueError(
+        #[serde(serialize_with = "ser_err")]
+        #[from]
+        dialoguer::Error,
+    ),
     #[error("Error while reading information from the executable file: {0}")]
-    Object(#[from] object::Error),
+    Object(
+        #[serde(serialize_with = "ser_err")]
+        #[from]
+        object::Error,
+    ),
     #[error("Error while working with the DWARF debug information: {0}")]
-    Dwarf(#[from] gimli::Error),
+    Dwarf(
+        #[serde(serialize_with = "ser_err")]
+        #[from]
+        gimli::Error,
+    ),
     #[error("Error while loading the DWARF debug information into gimli")]
     GimliLoad,
     #[error("Could not format: {0}")]
-    Format(#[from] std::fmt::Error),
+    Format(
+        #[serde(serialize_with = "ser_err")]
+        #[from]
+        std::fmt::Error,
+    ),
     #[error("DWARF Tag not implemented for this debugger: {0}")]
-    DwTagNotImplemented(DwTag),
+    DwTagNotImplemented(#[serde(serialize_with = "ser_dwtag")] DwTag),
     #[error("Tried stepping out of main function, this makes no sense")]
     StepOutMain,
     #[error("Unwind Error: {0}")]
-    Unwind(#[from] unwind::Error),
+    Unwind(
+        #[serde(serialize_with = "ser_err")]
+        #[from]
+        unwind::Error,
+    ),
     #[error("While calculating the higher address with DWARF debug symbols, the lower address was none but the higher (offset) was some")]
     HighAddrExistsButNotLowAddr,
     #[error("Register with index {0} is not supported by this debugger")]
@@ -106,7 +142,7 @@ pub enum DebuggerError {
     #[error("The debuggee is currently not in a known function")]
     NotInFunction,
     #[error("A required attribute did not exist: {0:?}")]
-    AttributeDoesNotExist(gimli::DwAt),
+    AttributeDoesNotExist(#[serde(serialize_with = "ser_dwat")] gimli::DwAt),
     #[error("While parsing a DWARF location: no frame information was provided")]
     NoFrameInfo,
     #[error("Tried to run a program while one was already running")]
@@ -114,7 +150,11 @@ pub enum DebuggerError {
     #[error("Found multiple DWARF entries for an operation that was supposed to only find one")]
     MultipleDwarfEntries,
     #[error("Working with JSON failed: {0}")]
-    Json(#[from] serde_json::Error),
+    Json(
+        #[serde(serialize_with = "ser_err")]
+        #[from]
+        serde_json::Error,
+    ),
     #[error(
         "Tried to disassemble a line that we had already disassembled for this iteration: {0}"
     )]
@@ -123,29 +163,25 @@ pub enum DebuggerError {
     UiUsedPluginContinue,
 }
 
-// Create a serializable representation of errors
-#[derive(Serialize)]
-struct SerializableError {
-    error_type: String,
-    message: String,
+#[allow(clippy::trivially_copy_pass_by_ref)] // serde passes by ref
+fn ser_dwat<S>(attr: &gimli::DwAt, s: S) -> std::result::Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_str(&attr.to_string())
 }
 
-// Add this implementation instead of deriving Serialize
-impl Serialize for DebuggerError {
-    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        // Convert the error to a serializable format
-        let error_type = std::any::type_name_of_val(self);
+#[allow(clippy::trivially_copy_pass_by_ref)] // serde passes by ref
+fn ser_dwtag<S>(tag: &gimli::DwTag, s: S) -> std::result::Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_str(&tag.to_string())
+}
 
-        // Use Display implementation to get error message
-        let message = self.to_string();
-
-        SerializableError {
-            error_type: error_type.to_string(),
-            message,
-        }
-        .serialize(serializer)
-    }
+fn ser_err<S>(err: impl std::error::Error, s: S) -> std::result::Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    s.serialize_str(&err.to_string())
 }

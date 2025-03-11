@@ -193,7 +193,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             stored_obj_data: None,
             stored_obj_data_raw: Vec::new(),
             #[cfg(feature = "plugins")]
-            plugins: Arc::new(PluginManager::new().into()),
+            plugins: Arc::new(crate::plugins::default_plugin_manager().into()),
         })
     }
 

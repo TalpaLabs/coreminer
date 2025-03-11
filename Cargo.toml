@@ -22,6 +22,7 @@ categories = [
 all-features = true
 
 [dependencies]
+steckrs = { version = "0.2.*", optional = true }
 clap = { version = "4.5.27", features = ["derive"], optional = true }
 dialoguer = { version = "0.11.0", features = ["history"], optional = true }
 gimli = { version = "0.31.1", default-features = true, features = [
@@ -41,17 +42,17 @@ proc-maps = "0.4.0"
 rustc-demangle = "0.1.24"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.137"
-steckrs = "0.2.*"
 thiserror = "2.0.11"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 unwind = { version = "0.4.2", features = ["ptrace"] }
 
 [features]
-default = ["binaries"]
+default = ["binaries", "plugins"]
 binaries = ["cli", "cmserve"]
 cli = ["dep:clap", "dep:dialoguer", "dep:human-panic"]
 cmserve = ["dep:clap", "dep:human-panic"]
+plugins = ["dep:steckrs"]
 
 [[bin]]
 name = "cm"

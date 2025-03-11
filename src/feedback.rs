@@ -95,9 +95,15 @@ pub enum Feedback {
     /// Debuggee process exit
     Exit(i32),
 
-    /// Internal variant signaling to stop the processing loop
+    /// Internal feedback for controls
     #[serde(skip)]
-    QuitInternal,
+    Internal(InternalFeedback),
+}
+
+#[derive(Debug)]
+pub(crate) enum InternalFeedback {
+    /// Internal variant signaling to stop the processing loop
+    Quit,
 }
 
 impl Display for Feedback {
@@ -115,10 +121,7 @@ impl Display for Feedback {
             Feedback::Stack(t) => write!(f, "Stack:\n{t}")?,
             Feedback::ProcessMap(pm) => write!(f, "Process Map:\n{pm:#x?}")?,
             Feedback::Exit(code) => write!(f, "Debugee exited with code {code}")?,
-            Feedback::QuitInternal => write!(
-                f,
-                "The internal processing loop of coreminer was requested to stop"
-            )?,
+            Feedback::Internal(_) => write!(f, "Internal Feedback")?,
         }
 
         Ok(())

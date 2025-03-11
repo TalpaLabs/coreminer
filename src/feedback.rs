@@ -10,11 +10,18 @@
 //! The different variants of the [`Feedback`] enum represent different types
 //! of information that might be returned from debugging operations, such as
 //! register values, memory contents, disassembly, and error conditions.
+//!
+//!
+//! This module also defines the [`Status`] enum, which represents commands
+//! from the [`DebuggerUI`](crate::ui::DebuggerUI) or from [Plugins](crate::plugins)
+//! to the [`Debugger`](crate::debugger::Debugger).
 
+use std::ffi::CString;
 use std::fmt::Display;
+use std::path::PathBuf;
 
 use nix::libc::user_regs_struct;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::dbginfo::OwnedSymbol;
 use crate::disassemble::Disassembly;
@@ -22,7 +29,107 @@ use crate::errors::DebuggerError;
 use crate::memorymap::ProcessMemoryMap;
 use crate::unwind::Backtrace;
 use crate::variable::VariableValue;
-use crate::{Addr, Word};
+use crate::{Addr, Register, Word};
+
+/// Represents a command from the UI to the debugger
+///
+/// [`Status`] encapsulates commands that can be sent from the user interface
+/// to the debugger, such as setting breakpoints, stepping, continuing execution,
+/// and inspecting memory or registers.
+///
+/// # Examples
+///
+/// ```
+/// use coreminer::feedback::Status;
+/// use coreminer::addr::Addr;
+/// use coreminer::Register;
+/// use std::path::Path;
+///
+/// // Command to set a breakpoint at address 0x1000
+/// let status = Status::SetBreakpoint(Addr::from(0x1000usize));
+///
+/// // Command to continue execution
+/// let status = Status::Continue;
+///
+/// // Command to set a register value
+/// let status = Status::SetRegister(Register::rax, 0x42);
+///
+/// // Command to run a executable in the debugger
+/// let status = Status::Run(Path::new("/bin/ls").into(), vec![]);
+/// ```
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub enum Status {
+    /// Generate a backtrace of the call stack
+    Backtrace,
+
+    /// Step over the current function call
+    StepOver,
+
+    /// Step into the current function call
+    StepInto,
+
+    /// Step out of the current function
+    StepOut,
+
+    /// Step a single instruction
+    StepSingle,
+
+    /// Look up symbols by name
+    GetSymbolsByName(String),
+
+    /// Disassemble memory at the specified address
+    ///
+    /// The boolean parameter indicates whether to show the literal bytes
+    /// (including breakpoint instructions) instead of the original code.
+    DisassembleAt(Addr, usize, bool),
+
+    /// Exit the debugger
+    DebuggerQuit,
+
+    /// Continue execution
+    Continue,
+
+    /// Set a breakpoint at the specified address
+    SetBreakpoint(Addr),
+
+    /// Remove a breakpoint at the specified address
+    DelBreakpoint(Addr),
+
+    /// Get all register values
+    DumpRegisters,
+
+    /// Set a register value
+    SetRegister(Register, u64),
+
+    /// Write a value to memory
+    WriteMem(Addr, Word),
+
+    /// Read a value from memory
+    ReadMem(Addr),
+
+    /// Show debugger information
+    Infos,
+
+    /// Read a variable's value
+    ReadVariable(String),
+
+    /// Write a value to a variable
+    WriteVariable(String, usize),
+
+    /// Show the current stack
+    GetStack,
+
+    /// Show the process memory map
+    ProcMap,
+
+    /// Run a new program
+    Run(PathBuf, Vec<CString>),
+
+    /// To be used by plugin hooks if the hook is done
+    #[serde(skip)]
+    PluginContinue,
+}
 
 /// Represents the result of a debugging operation
 ///

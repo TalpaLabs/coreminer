@@ -8,7 +8,7 @@ use nix::sys::signal::Signal;
 
 use crate::errors::Result;
 use crate::feedback::Feedback;
-use crate::ui::Status;
+use crate::feedback::Status;
 
 extension_point!(
     // [ExtensionPoint](steckrs::hook::ExtensionPoint) called before signals to the debuggee are

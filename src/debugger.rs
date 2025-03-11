@@ -449,28 +449,9 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         error!("{e}");
                         return Err(e);
                     }
-                    Ok(s) => match s {
-                        Status::Infos => self.infos(),
-                        Status::DebuggerQuit => break,
-                        Status::Continue => self.cont(None),
-                        Status::SetBreakpoint(addr) => self.set_bp(addr),
-                        Status::DelBreakpoint(addr) => self.del_bp(addr),
-                        Status::DumpRegisters => self.dump_regs(),
-                        Status::SetRegister(r, v) => self.set_reg(r, v),
-                        Status::WriteMem(a, v) => self.write_mem(a, v),
-                        Status::ReadMem(a) => self.read_mem(a),
-                        Status::DisassembleAt(a, l, literal) => self.disassemble_at(a, l, literal),
-                        Status::GetSymbolsByName(s) => self.get_symbol_by_name(s),
-                        Status::StepSingle => self.single_step(),
-                        Status::StepOut => self.step_out(),
-                        Status::StepInto => self.step_into(),
-                        Status::StepOver => self.step_over(),
-                        Status::Backtrace => self.backtrace(),
-                        Status::ReadVariable(va) => self.read_variable(&va),
-                        Status::WriteVariable(va, val) => self.write_variable(&va, val),
-                        Status::GetStack => self.get_stack(),
-                        Status::ProcMap => self.get_process_map(),
-                        Status::Run(exe, args) => self.run(&exe, &args),
+                    Ok(s) => match self.process_status(&s) {
+                        Ok(Feedback::QuitInternal) => break,
+                        other => other,
                     },
                 }
             }
@@ -483,6 +464,32 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         }
 
         Ok(())
+    }
+
+    pub fn process_status(&mut self, status: &Status) -> Result<Feedback> {
+        match status {
+            Status::Infos => self.infos(),
+            Status::DebuggerQuit => Ok(Feedback::QuitInternal),
+            Status::Continue => self.cont(None),
+            Status::SetBreakpoint(addr) => self.set_bp(*addr),
+            Status::DelBreakpoint(addr) => self.del_bp(*addr),
+            Status::DumpRegisters => self.dump_regs(),
+            Status::SetRegister(r, v) => self.set_reg(*r, *v),
+            Status::WriteMem(a, v) => self.write_mem(*a, *v),
+            Status::ReadMem(a) => self.read_mem(*a),
+            Status::DisassembleAt(a, l, literal) => self.disassemble_at(*a, *l, *literal),
+            Status::GetSymbolsByName(s) => self.get_symbol_by_name(s),
+            Status::StepSingle => self.single_step(),
+            Status::StepOut => self.step_out(),
+            Status::StepInto => self.step_into(),
+            Status::StepOver => self.step_over(),
+            Status::Backtrace => self.backtrace(),
+            Status::ReadVariable(va) => self.read_variable(va),
+            Status::WriteVariable(va, val) => self.write_variable(va, *val),
+            Status::GetStack => self.get_stack(),
+            Status::ProcMap => self.get_process_map(),
+            Status::Run(exe, args) => self.run(exe, args),
+        }
     }
 
     /// Continues execution of the debuggee, optionally delivering a signal

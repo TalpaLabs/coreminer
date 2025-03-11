@@ -1904,10 +1904,12 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                 }
             };
             if status == Status::PluginContinue {
-                continue;
+                break;
             }
             feedback = self.process_status(&status)?;
         }
+
+        Ok(())
     }
 
     #[cfg(feature = "plugins")]

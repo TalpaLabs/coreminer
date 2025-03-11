@@ -27,12 +27,14 @@ use std::collections::HashMap;
 use std::ffi::CString;
 use std::fmt::Display;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 use iced_x86::FormatterTextKind;
 use nix::sys::ptrace;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::execv;
+use steckrs::hook::{ExtensionPoint, Hook};
 use steckrs::PluginManager;
 use tracing::{debug, error, info, trace, warn};
 
@@ -43,11 +45,11 @@ use crate::debuggee::Debuggee;
 use crate::disassemble::Disassembly;
 use crate::dwarf_parse::FrameInfo;
 use crate::errors::{DebuggerError, Result};
-use crate::extension_points::{EOnSigTrap, EPreSignalHandler};
-use crate::feedback::Feedback;
+use crate::extension_points::EPreSignalHandler;
+use crate::feedback::{Feedback, InternalFeedback};
 use crate::ui::{DebuggerUI, Status};
 use crate::variable::{VariableExpression, VariableValue};
-use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
+use crate::{for_hooks, mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 
 /// Manages the debugging session and coordinates between the UI and debuggee
 ///
@@ -143,7 +145,7 @@ pub struct Debugger<'executable, UI: DebuggerUI> {
     pub(crate) ui: UI,
     stored_obj_data: Option<object::File<'executable>>,
     stored_obj_data_raw: Vec<u8>,
-    plugins: PluginManager,
+    plugins: Arc<Mutex<PluginManager>>,
 }
 
 impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
@@ -182,7 +184,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             ui,
             stored_obj_data: None,
             stored_obj_data_raw: Vec::new(),
-            plugins: PluginManager::new(),
+            plugins: Arc::new(PluginManager::new().into()),
         })
     }
 
@@ -289,10 +291,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # }}
     /// ```
-    pub fn wait_signal(&self) -> Result<Feedback> {
-        let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
-
-        'waiting: loop {
+    pub fn wait_signal(&mut self) -> Result<Feedback> {
+        loop {
             match self.wait(&[])? {
                 WaitStatus::Exited(_, exit_code) => {
                     return Ok(Feedback::Exit(exit_code));
@@ -303,18 +303,18 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                 }
                 _ => {
                     // Get and handle other signals as before
-                    let siginfo = ptrace::getsiginfo(dbge.pid)?;
+                    let siginfo = ptrace::getsiginfo(
+                        self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?.pid,
+                    )?;
                     let sig = Signal::try_from(siginfo.si_signo)?;
 
-                    for hook in self
-                        .plugins
-                        .hook_registry()
-                        .get_by_extension_point::<EPreSignalHandler>()
-                    {
-                        if hook.inner().pre_handle_signal(&siginfo, &sig) {
-                            continue 'waiting;
+                    for_hooks!(
+                        for hook[EPreSignalHandler] in self {
+                            self.hook_feedback_loop(hook, |f| {
+                                hook.inner().pre_handle_signal(f, &siginfo, &sig)
+                            })?;
                         }
-                    }
+                    );
 
                     match sig {
                         Signal::SIGTRAP => {
@@ -450,7 +450,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                         return Err(e);
                     }
                     Ok(s) => match self.process_status(&s) {
-                        Ok(Feedback::QuitInternal) => break,
+                        Ok(Feedback::Internal(InternalFeedback::Quit)) => break,
                         other => other,
                     },
                 }
@@ -469,7 +469,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     pub fn process_status(&mut self, status: &Status) -> Result<Feedback> {
         match status {
             Status::Infos => self.infos(),
-            Status::DebuggerQuit => Ok(Feedback::QuitInternal),
+            Status::DebuggerQuit => Ok(Feedback::Internal(InternalFeedback::Quit)),
             Status::Continue => self.cont(None),
             Status::SetBreakpoint(addr) => self.set_bp(*addr),
             Status::DelBreakpoint(addr) => self.del_bp(*addr),
@@ -489,6 +489,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             Status::GetStack => self.get_stack(),
             Status::ProcMap => self.get_process_map(),
             Status::Run(exe, args) => self.run(exe, args),
+            Status::PluginContinue => Err(DebuggerError::UiUsedPluginContinue),
         }
     }
 
@@ -1116,16 +1117,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             }
             TRAP_TRACE => trace!("TRAP_TRACE"), // single stepping
             _ => warn!("Strange SIGTRAP code: {}", siginfo.si_code),
-        }
-
-        for hook in self
-            .plugins
-            .hook_registry()
-            .get_by_extension_point::<EOnSigTrap>()
-        {
-            if let Err(e) = hook.inner().handle_sigtrap(&siginfo, &sig) {
-                warn!("Hook '{}' failed: {e}", hook.name());
-            }
         }
 
         Ok(())
@@ -1882,5 +1873,34 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         self.launch_debuggee(exe, arguments)?;
 
         Ok(Feedback::Ok)
+    }
+
+    pub(crate) fn hook_feedback_loop<F, E: ExtensionPoint>(
+        &mut self,
+        hook: &Hook<E>,
+        mut f: F,
+    ) -> Result<()>
+    where
+        F: FnMut(&Feedback) -> Result<Status>,
+    {
+        let mut feedback = Feedback::Ok;
+        let mut status;
+        loop {
+            status = match f(&feedback) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("Error in Hook '{}': {e}", hook.name());
+                    continue;
+                }
+            };
+            if status == Status::PluginContinue {
+                continue;
+            }
+            feedback = self.process_status(&status)?;
+        }
+    }
+
+    fn plugins(&self) -> Arc<Mutex<PluginManager>> {
+        self.plugins.clone()
     }
 }

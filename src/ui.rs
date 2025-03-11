@@ -53,7 +53,7 @@ pub mod json;
 /// // Command to run a executable in the debugger
 /// let status = Status::Run(Path::new("/bin/ls").into(), vec![]);
 /// ```
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub enum Status {
     /// Generate a backtrace of the call stack
@@ -121,6 +121,10 @@ pub enum Status {
 
     /// Run a new program
     Run(PathBuf, Vec<CString>),
+
+    /// To be used by plugin hooks if the hook is done
+    #[serde(skip)]
+    PluginContinue,
 }
 
 /// Interface for debugger user interfaces

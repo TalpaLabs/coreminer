@@ -52,7 +52,12 @@ fn setup() {
     human_panic::setup_panic!();
     // construct a subscriber that prints formatted traces to stdout
     let subscriber = tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
+        .with_max_level(
+            #[cfg(debug_assertions)]
+            tracing::Level::TRACE,
+            #[cfg(not(debug_assertions))]
+            tracing::Level::INFO,
+        )
         .without_time()
         .with_file(false)
         .with_target(false)

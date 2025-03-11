@@ -119,6 +119,8 @@ pub enum DebuggerError {
         "Tried to disassemble a line that we had already disassembled for this iteration: {0}"
     )]
     AlreadyDisassembled(Addr),
+    #[error("The UI used {:?}", crate::ui::Status::PluginContinue)]
+    UiUsedPluginContinue,
 }
 
 // Create a serializable representation of errors
@@ -135,44 +137,7 @@ impl Serialize for DebuggerError {
         S: Serializer,
     {
         // Convert the error to a serializable format
-        let error_type = match self {
-            DebuggerError::Os(_) => "OS",
-            DebuggerError::Io(_) => "IO",
-            DebuggerError::ExecutableDoesNotExist => "ExecutableDoesNotExist",
-            DebuggerError::ExecutableIsNotAFile => "ExecutableIsNotAFile",
-            DebuggerError::ExecutableIsNotExecutable => "ExecutableIsNotExecutable",
-            DebuggerError::CStringConv(_) => "CStringConversion",
-            DebuggerError::NoDebugee => "NoDebuggee",
-            DebuggerError::BreakpointIsAlreadyEnabled => "BreakpointAlreadyEnabled",
-            DebuggerError::BreakpointIsAlreadyDisabled => "BreakpointAlreadyDisabled",
-            DebuggerError::ParseInt(_) => "ParseInt",
-            DebuggerError::ParseStr(_) => "ParseString",
-            #[cfg(feature = "cli")]
-            DebuggerError::CliUiDialogueError(_) => "UIDialogue",
-            DebuggerError::Object(_) => "Object",
-            DebuggerError::Dwarf(_) => "DWARF",
-            DebuggerError::GimliLoad => "GimliLoad",
-            DebuggerError::Format(_) => "Format",
-            DebuggerError::DwTagNotImplemented(_) => "DwTagNotImplemented",
-            DebuggerError::StepOutMain => "OutMain",
-            DebuggerError::Unwind(_) => "Unwind",
-            DebuggerError::HighAddrExistsButNotLowAddr => "AddrExistsButNotLowAddr",
-            DebuggerError::UnimplementedRegister(_) => "UnimplementedRegister",
-            DebuggerError::WrongSymbolKind(_) => "WrongSymbolKind",
-            DebuggerError::VariableSymbolNoType => "SymbolNoType",
-            DebuggerError::SymbolHasNoLocation => "SymbolHasNoLocation",
-            DebuggerError::SymbolHasNoByteSize => "SymbolHasNoByteSize",
-            DebuggerError::AmbiguousVarExpr(_) => "AmbiguousVariableExpression",
-            DebuggerError::VarExprReturnedNothing(_) => "ExpressionReturnedNothing",
-            DebuggerError::NoDatatypeFound => "NoDatatypeFound",
-            DebuggerError::NotInFunction => "NotInFunction",
-            DebuggerError::AttributeDoesNotExist(_) => "DoesNotExist",
-            DebuggerError::NoFrameInfo => "NoFrameInfo",
-            DebuggerError::AlreadyRunning => "AlreadyRunning",
-            DebuggerError::MultipleDwarfEntries => "MultipleDWARFEntries",
-            DebuggerError::Json(_) => "Json",
-            DebuggerError::AlreadyDisassembled(_) => "AlreadyDisassembled",
-        };
+        let error_type = std::any::type_name_of_val(self);
 
         // Use Display implementation to get error message
         let message = self.to_string();

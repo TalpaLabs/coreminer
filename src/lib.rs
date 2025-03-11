@@ -85,11 +85,13 @@ pub mod dwarf_parse;
 pub mod errors;
 pub mod feedback;
 pub mod memorymap;
-pub mod plugins;
 pub mod stack;
 pub mod ui;
 pub mod unwind;
 pub mod variable;
+
+#[cfg(feature = "plugins")]
+pub mod plugins;
 
 /// Type alias for machine word-sized integers, used for register values and memory contents
 pub type Word = i64;
@@ -369,4 +371,10 @@ mod test {
         );
         Register::try_from(gimli::Register(666)).expect_err("could make register from invalid num");
     }
+}
+
+#[cfg(not(feature = "plugins"))]
+#[macro_export]
+macro_rules! for_hooks {
+    ($($discard:tt)*) => {};
 }

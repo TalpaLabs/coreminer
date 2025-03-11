@@ -43,7 +43,7 @@ use crate::debuggee::Debuggee;
 use crate::disassemble::Disassembly;
 use crate::dwarf_parse::FrameInfo;
 use crate::errors::{DebuggerError, Result};
-use crate::extension_points::{EOnSigTrap, EPPreSignalHandler};
+use crate::extension_points::{EOnSigTrap, EPreSignalHandler};
 use crate::feedback::Feedback;
 use crate::ui::{DebuggerUI, Status};
 use crate::variable::{VariableExpression, VariableValue};
@@ -309,7 +309,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                     for hook in self
                         .plugins
                         .hook_registry()
-                        .get_by_extension_point::<EPPreSignalHandler>()
+                        .get_by_extension_point::<EPreSignalHandler>()
                     {
                         if hook.inner().pre_handle_signal(&siginfo, &sig) {
                             continue 'waiting;

@@ -8,7 +8,7 @@ use coreminer::feedback::Feedback;
 use coreminer::ui::json::{Input, JsonUI};
 
 use clap::Parser;
-use coreminer::ui::Status;
+use coreminer::feedback::Status;
 use serde::de::Error;
 use tracing::trace;
 

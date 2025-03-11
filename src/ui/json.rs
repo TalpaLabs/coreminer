@@ -33,7 +33,7 @@ use super::{DebuggerUI, Status};
 ///
 /// ```
 /// use coreminer::ui::json::Input;
-/// use coreminer::ui::Status;
+/// use coreminer::feedback::Status;
 /// use coreminer::addr::Addr;
 /// use serde_json::json;
 ///

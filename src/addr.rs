@@ -49,6 +49,7 @@ pub type RawPointer = *mut std::ffi::c_void;
 pub struct Addr(usize);
 
 impl Addr {
+    /// Address with value 0, or NULL pointer
     pub const NULL: Self = Addr(0);
 
     /// Returns the address as a `usize` value

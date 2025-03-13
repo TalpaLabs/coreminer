@@ -30,7 +30,6 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use iced_x86::FormatterTextKind;
-use nix::libc::siginfo_t;
 use nix::sys::ptrace;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
@@ -429,7 +428,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # Examples
     ///
-    ///
     /// ```no_run
     /// #[cfg(feature = "cli")]
     /// # mod featguard { fn _do_thing() {
@@ -480,6 +478,59 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(())
     }
 
+    /// Process a [`Status`] by executing the specified action.
+    ///
+    /// This function takes a [`Status`] and has the debugger perform actions to generate
+    /// a [`Feedback`].
+    ///
+    /// For example, a [`Status`] might request that the [`Debugger`] should read some [`Word`]
+    /// from the memory of the [`Debuggee`] with [`Status::ReadMem`].
+    ///
+    /// This function will then match
+    /// the [`Status`] to the fitting implementation function, [`Self::read_mem`] for this example,
+    /// execute it, and return the [`Feedback`] ([`Feedback::Word`]).
+    ///
+    /// If the action taken fails, a [`Err`] variant will be returned instead. Since [`Feedback`]
+    /// can be constructed from a [`DebuggerError`], you can wrap the error in a [`Feedback`] and
+    /// send this to the [`DebuggerUI`] or a [`Plugin`](steckrs::Plugin) with [`Self::hook_feedback_loop`].
+    ///
+    /// # Parameters
+    ///
+    /// * `status` - A [`Status`] to be processed
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback)` - The result of the action detailed by the `status`
+    /// * `Err(DebuggerError)` - If there was an error performing the requested action
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if the taken action for that [`Status`] fails.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::addr::Addr;
+    /// # use coreminer::feedback::{Feedback, Status};
+    /// #
+    /// let ui = CliUi::build(None).unwrap();
+    /// let mut debugger = Debugger::build(ui).unwrap();
+    ///
+    /// let status = Status::ReadMem(Addr::from(98421479usize));
+    /// let feedback: Feedback = debugger.process_status(&status).unwrap();
+    ///
+    /// if let Feedback::Word(w) = feedback {
+    ///     println!("read the word: {w}");
+    /// } else {
+    ///     eprintln!("could not read the word");
+    /// }
+    ///
+    /// # }}
+    /// ```
     pub fn process_status(&mut self, status: &Status) -> Result<Feedback> {
         let last_sig = self.take_last_signal();
         match status {
@@ -1190,11 +1241,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(())
     }
 
-    pub fn send_signal(&mut self, siginfo: &siginfo_t) -> Result<()> {
-        let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
-        Ok(ptrace::setsiginfo(dbge.pid, siginfo)?)
-    }
-
     /// Logs information about the debugger state
     ///
     /// # Returns
@@ -1257,7 +1303,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         loop {
             let rip: Addr = (self.get_reg(Register::rip)?).into();
             let disassembly: Disassembly =
-                // unwrap is safe because we check earlier, needed because we need the mutable 
+                // unwrap is safe because we check earlier, needed because we need the mutable
                 // reference
                 self.debuggee.as_ref().unwrap().disassemble(rip, 8, true)?;
             let next_instruction = &disassembly.inner()[0];
@@ -1397,7 +1443,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// - The current location is not in a function
     /// - The variable is not found
     /// - Frame information cannot be constructed
-    fn prepare_variable_access(
+    #[allow(clippy::missing_panics_doc)] // this function cant panic
+    pub fn prepare_variable_access(
         &self,
         expression: &VariableExpression,
     ) -> Result<(OwnedSymbol, OwnedSymbol, FrameInfo)> {
@@ -1435,7 +1482,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         );
 
         let frame_base = dbge.parse_location(
-            current_function.frame_base().unwrap(),
+            current_function.frame_base().unwrap(), // safe: we check above if this is some
             &frame_info,
             current_function.encoding(),
         )?;
@@ -1903,7 +1950,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     #[cfg(feature = "plugins")]
-    pub(crate) fn hook_feedback_loop<F, E: ExtensionPoint>(
+    pub fn hook_feedback_loop<F, E: ExtensionPoint>(
         &mut self,
         hook: &Hook<E>,
         mut f: F,

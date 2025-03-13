@@ -30,6 +30,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use iced_x86::FormatterTextKind;
+use nix::libc::siginfo_t;
 use nix::sys::ptrace;
 use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
@@ -152,6 +153,7 @@ pub struct Debugger<'executable, UI: DebuggerUI> {
     pub(crate) ui: UI,
     stored_obj_data: Option<object::File<'executable>>,
     stored_obj_data_raw: Vec<u8>,
+    last_signal: Option<Signal>,
     #[cfg(feature = "plugins")]
     plugins: Arc<Mutex<PluginManager>>,
 }
@@ -192,6 +194,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             ui,
             stored_obj_data: None,
             stored_obj_data_raw: Vec::new(),
+            last_signal: None,
             #[cfg(feature = "plugins")]
             plugins: Arc::new(crate::plugins::default_plugin_manager().into()),
         })
@@ -300,50 +303,50 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # }}
     /// ```
+    // BUG: this seems to eat signals, the debuggee does not get them. This is especially bad for
+    // SIGTERM #43
     pub fn wait_signal(&mut self) -> Result<Feedback> {
-        loop {
-            match self.wait(&[])? {
-                WaitStatus::Exited(_, exit_code) => {
-                    return Ok(Feedback::Exit(exit_code));
-                }
-                WaitStatus::Signaled(_, signal, _) => {
-                    debug!("Debuggee terminated by signal: {}", signal);
-                    return Ok(Feedback::Exit(-1));
-                }
-                _ => {
-                    // Get and handle other signals as before
-                    let siginfo = ptrace::getsiginfo(
-                        self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?.pid,
-                    )?;
-                    let sig = Signal::try_from(siginfo.si_signo)?;
+        trace!("new wait signal iteration");
+        match self.wait(&[])? {
+            WaitStatus::Exited(_, exit_code) => Ok(Feedback::Exit(exit_code)),
+            WaitStatus::Signaled(_, signal, _) => {
+                info!("Debuggee terminated by signal: {}", signal);
+                Ok(Feedback::Exit(-1))
+            }
+            wait_status => {
+                // Get and handle other signals as before
+                let siginfo = ptrace::getsiginfo(
+                    self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?.pid,
+                )?;
+                let sig = Signal::try_from(siginfo.si_signo)?;
+                debug!("wait status: {wait_status:?}");
 
-                    for_hooks!(
-                        for hook[EPreSignalHandler] in self {
-                            self.hook_feedback_loop(hook, |f| {
-                                hook.inner().pre_handle_signal(f, &siginfo, &sig)
-                            })?;
-                        }
-                    );
+                for_hooks!(
+                    for hook[EPreSignalHandler] in self {
+                        self.hook_feedback_loop(hook, |f| {
+                            hook.inner().pre_handle_signal(f, &siginfo, &sig, &wait_status)
+                        })?;
+                    }
+                );
 
-                    match sig {
-                        Signal::SIGTRAP => {
-                            self.handle_sigtrap(sig, siginfo)?;
-                            return Ok(Feedback::Ok);
-                        }
-                        Signal::SIGSEGV
-                        | Signal::SIGINT
-                        | Signal::SIGPIPE
-                        | Signal::SIGSTOP
-                        | Signal::SIGWINCH
-                        | Signal::SIGTERM
-                        | Signal::SIGILL => {
-                            self.handle_important_signal(sig, siginfo)?;
-                            return Ok(Feedback::Ok);
-                        }
-                        _ => {
-                            self.handle_other_signal(sig, siginfo)?;
-                            continue;
-                        }
+                match sig {
+                    Signal::SIGTRAP => {
+                        self.handle_sigtrap(sig, siginfo)?;
+                        Ok(Feedback::Ok)
+                    }
+                    Signal::SIGSEGV
+                    | Signal::SIGINT
+                    | Signal::SIGPIPE
+                    | Signal::SIGSTOP
+                    | Signal::SIGWINCH
+                    | Signal::SIGTERM
+                    | Signal::SIGILL => {
+                        self.handle_important_signal(sig, siginfo)?;
+                        Ok(Feedback::Ok)
+                    }
+                    _ => {
+                        self.handle_other_signal(sig, siginfo)?;
+                        Ok(Feedback::Ok)
                     }
                 }
             }
@@ -398,6 +401,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     pub fn wait(&self, options: &[WaitPidFlag]) -> Result<WaitStatus> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
         let mut flags = WaitPidFlag::empty();
+        trace!("wait flags: {flags:?}");
         for f in options {
             flags |= *f;
         }
@@ -477,10 +481,11 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     }
 
     pub fn process_status(&mut self, status: &Status) -> Result<Feedback> {
+        let last_sig = self.take_last_signal();
         match status {
             Status::Infos => self.infos(),
             Status::DebuggerQuit => Ok(Feedback::Internal(InternalFeedback::Quit)),
-            Status::Continue => self.cont(None),
+            Status::Continue => self.cont(last_sig),
             Status::SetBreakpoint(addr) => self.set_bp(*addr),
             Status::DelBreakpoint(addr) => self.del_bp(*addr),
             Status::DumpRegisters => self.dump_regs(),
@@ -489,10 +494,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             Status::ReadMem(a) => self.read_mem(*a),
             Status::DisassembleAt(a, l, literal) => self.disassemble_at(*a, *l, *literal),
             Status::GetSymbolsByName(s) => self.get_symbol_by_name(s),
-            Status::StepSingle => self.single_step(),
-            Status::StepOut => self.step_out(),
-            Status::StepInto => self.step_into(),
-            Status::StepOver => self.step_over(),
+            Status::StepSingle => self.single_step(last_sig),
+            Status::StepOut => self.step_out(last_sig),
+            Status::StepInto => self.step_into(last_sig),
+            Status::StepOver => self.step_over(last_sig),
             Status::Backtrace => self.backtrace(),
             Status::ReadVariable(va) => self.read_variable(va),
             Status::WriteVariable(va, val) => self.write_variable(va, *val),
@@ -750,11 +755,11 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// This function can fail if:
     /// - The debuggee is not running
     /// - ptrace's step operation fails
-    fn atomic_single_step(&self) -> Result<()> {
+    fn atomic_single_step(&self, sig: Option<Signal>) -> Result<()> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
         // FIXME: this is probably noticeable
-        if let Err(e) = ptrace::step(dbge.pid, None) {
+        if let Err(e) = ptrace::step(dbge.pid, sig) {
             error!("could not do atomic step: {e}");
             return Err(e.into());
         }
@@ -801,8 +806,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # }}
     /// ```
-    pub fn single_step(&mut self) -> Result<Feedback> {
-        if self.go_back_step_over_bp()? {
+    pub fn single_step(&mut self, mut sig: Option<Signal>) -> Result<Feedback> {
+        if self.go_back_step_over_bp(sig.take())? {
             info!("breakpoint before, caught up and continueing with single step");
         }
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -810,10 +815,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         let maybe_bp_addr: Addr = self.get_current_addr()?;
         if dbge.breakpoints.contains_key(&maybe_bp_addr) {
             trace!("step over instruction with breakpoint");
-            self.dse(maybe_bp_addr)?;
+            self.dse(maybe_bp_addr, sig.take())?;
         } else {
             trace!("step regular instruction");
-            self.atomic_single_step()?;
+            self.atomic_single_step(sig.take())?;
             self.wait_signal()?;
         }
         trace!("now at {:018x}", self.get_reg(Register::rip)?);
@@ -859,7 +864,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # }}
     /// ```
-    pub fn step_out(&mut self) -> Result<Feedback> {
+    pub fn step_out(&mut self, sig: Option<Signal>) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
         {
             let a = dbge.get_function_by_addr(self.get_reg(Register::rip)?.into())?;
@@ -886,7 +891,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             true
         };
 
-        self.cont(None)?;
+        self.cont(sig)?;
 
         if should_remove_breakpoint {
             self.del_bp(return_addr)?;
@@ -913,7 +918,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// - The debuggee is not running
     /// - Breakpoint operations fail
     /// - Step operations fail
-    fn dse(&mut self, here: Addr) -> Result<()> {
+    fn dse(&mut self, here: Addr, sig: Option<Signal>) -> Result<()> {
         trace!("disabling the breakpoint");
         self.debuggee
             .as_mut()
@@ -924,7 +929,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             .disable()?;
 
         trace!("atomic step");
-        self.atomic_single_step()?;
+        self.atomic_single_step(sig)?;
         trace!("waiting");
         self.wait_signal()
             .inspect_err(|e| warn!("weird wait_signal error: {e}"))?;
@@ -959,7 +964,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// - Register operations fail
     /// - Breakpoint operations fail
     #[allow(clippy::missing_panics_doc)] // this function cant panic
-    pub fn go_back_step_over_bp(&mut self) -> Result<bool> {
+    pub fn go_back_step_over_bp(&mut self, sig: Option<Signal>) -> Result<bool> {
         if self.debuggee.is_none() {
             return Err(DebuggerError::NoDebugee);
         }
@@ -981,7 +986,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             trace!("set register to {here}");
             self.set_reg(Register::rip, here.into())?;
 
-            self.dse(here)?;
+            self.dse(here, sig)?;
             Ok(true)
         } else {
             trace!("breakpoint is disabled or does not exist, doing nothing");
@@ -1114,7 +1119,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// This function can fail if:
     /// - The debuggee is not running
     pub fn handle_sigtrap(
-        &self,
+        &mut self,
         sig: nix::sys::signal::Signal,
         siginfo: nix::libc::siginfo_t,
     ) -> Result<()> {
@@ -1149,11 +1154,12 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// This function can fail if:
     /// - The debuggee is not running
     pub fn handle_important_signal(
-        &self,
+        &mut self,
         sig: Signal,
         siginfo: nix::libc::siginfo_t,
     ) -> Result<()> {
         info!("debugee received {}: {}", sig.as_str(), siginfo.si_code);
+        self.last_signal = Some(sig);
         Ok(())
     }
 
@@ -1173,9 +1179,20 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// This function can fail if:
     /// - The debuggee is not running
-    pub fn handle_other_signal(&self, sig: Signal, siginfo: nix::libc::siginfo_t) -> Result<()> {
+    pub fn handle_other_signal(
+        &mut self,
+        sig: Signal,
+        siginfo: nix::libc::siginfo_t,
+    ) -> Result<()> {
+        trace!("handle other");
         info!("debugee received {}: {}", sig.as_str(), siginfo.si_code);
+        self.last_signal = Some(sig);
         Ok(())
+    }
+
+    pub fn send_signal(&mut self, siginfo: &siginfo_t) -> Result<()> {
+        let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
+        Ok(ptrace::setsiginfo(dbge.pid, siginfo)?)
     }
 
     /// Logs information about the debugger state
@@ -1231,11 +1248,11 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # }}
     /// ```
     #[allow(clippy::missing_panics_doc)] // this function cannot panic
-    pub fn step_into(&mut self) -> Result<Feedback> {
+    pub fn step_into(&mut self, mut sig: Option<Signal>) -> Result<Feedback> {
         if self.debuggee.is_none() {
             return Err(DebuggerError::NoDebugee);
         }
-        self.go_back_step_over_bp()?;
+        self.go_back_step_over_bp(sig.take())?;
 
         loop {
             let rip: Addr = (self.get_reg(Register::rip)?).into();
@@ -1252,10 +1269,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             // PERF: this is very inefficient :/ maybe remove the autostepper or work with continue
             // somehow
             if operator.0.trim() == "call" {
-                self.single_step()?;
+                self.single_step(sig.take())?;
                 break;
             }
-            self.single_step()?;
+            self.single_step(sig.take())?;
         }
 
         Ok(Feedback::Ok)
@@ -1275,11 +1292,11 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// This function can fail if:
     /// - The debuggee is not running
     /// - Step operations fail
-    pub fn step_over(&mut self) -> Result<Feedback> {
-        self.go_back_step_over_bp()?;
+    pub fn step_over(&mut self, mut sig: Option<Signal>) -> Result<Feedback> {
+        self.go_back_step_over_bp(sig.take())?;
 
-        self.step_into()?;
-        self.step_out()
+        self.step_into(sig.take())?;
+        self.step_out(None)
     }
 
     /// Gets a backtrace of the current call stack
@@ -1916,5 +1933,9 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     #[cfg(feature = "plugins")]
     fn plugins(&self) -> Arc<Mutex<PluginManager>> {
         self.plugins.clone()
+    }
+
+    fn take_last_signal(&mut self) -> Option<Signal> {
+        self.last_signal.take()
     }
 }

@@ -1949,6 +1949,68 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Ok)
     }
 
+    /// Runs a feedback loop for plugin hooks
+    ///
+    /// This function enables plugin hooks to interact with the debugger through a feedback loop.
+    /// The hook can process feedback from the debugger and provide new status commands to be executed,
+    /// creating a continuous interaction until the hook signals completion with [`Status::PluginContinue`].
+    ///
+    /// This method is primarily used together with [`for_hooks`].
+    ///
+    /// # Parameters
+    ///
+    /// * `hook` - The plugin hook that's being executed
+    /// * `f` - A closure that processes feedback and returns new status commands
+    ///
+    /// # Type Parameters
+    ///
+    /// * `F` - The type of the closure that processes feedback
+    /// * `E` - The extension point type for the hook
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If the feedback loop completed successfully
+    /// * `Err(DebuggerError)` - If an error occurred during the feedback loop
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The hook returns an invalid status
+    /// - `process_status` fails when executing a command
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use steckrs::hook::ExtensionPoint;
+    /// # use coreminer::feedback::{Feedback, Status};
+    /// # use coreminer::plugins::extension_points::EPreSignalHandler;
+    /// # use coreminer::for_hooks;
+    /// # use coreminer::ui::DebuggerUI;
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::addr::Addr;
+    /// # fn helper<UI: DebuggerUI>(debugger: &mut Debugger<UI>) {
+    ///
+    /// // Inside a method that has access to hooks
+    /// for_hooks!(
+    ///     for hook[EPreSignalHandler] in debugger {
+    ///         debugger.hook_feedback_loop(hook, |feedback| {
+    ///             // Process the feedback and return a new status
+    ///             println!("Received feedback: {}", feedback);
+    ///
+    ///             if let Feedback::Word(w) = feedback {
+    ///                 println!("got word {w}");
+    ///                 Ok(Status::PluginContinue)
+    ///             } else {
+    ///                 Ok(Status::ReadMem(Addr::from(0xdeadbeef_usize)))
+    ///             }
+    ///         }).unwrap();
+    ///     }
+    /// );
+    /// # }
+    /// ```
+    ///
+    /// In this example, the hook processes feedback and decides whether to continue or
+    /// request more information from the debugger before completing.
     #[cfg(feature = "plugins")]
     pub fn hook_feedback_loop<F, E: ExtensionPoint>(
         &mut self,
@@ -1981,7 +2043,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     //
     /// Get a reference to the [`PluginManager`] of this [`Debugger`]
     #[cfg(feature = "plugins")]
-    fn plugins(&self) -> Arc<Mutex<PluginManager>> {
+    pub fn plugins(&self) -> Arc<Mutex<PluginManager>> {
         self.plugins.clone()
     }
 }

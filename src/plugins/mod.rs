@@ -46,7 +46,7 @@ macro_rules! for_hooks {
     (for $hook_var:ident[$extension_point:ident] in $debugger:ident $body:block) => {
         let plugins = $debugger.plugins();
         let plugins_lock = plugins.lock().unwrap();
-        let hooks: Vec<(_, &Hook<$extension_point>)> =
+        let hooks: Vec<(_, &steckrs::hook::Hook<$extension_point>)> =
             plugins_lock.get_enabled_hooks_by_ep::<EPreSignalHandler>();
         for (_, $hook_var) in hooks {
             {

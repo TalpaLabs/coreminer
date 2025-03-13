@@ -10,7 +10,7 @@
 //! Key components:
 //! - [`VariableExpression`]: A type for referring to variables by name
 //! - [`VariableValue`]: An enum representing different forms of variable values
-//! - Methods on the [`Debuggee`](crate::debuggee::Debuggee) for variable access
+//! - Methods on the [`Debuggee`] for variable access
 
 use serde::Serialize;
 use tracing::{info, trace};

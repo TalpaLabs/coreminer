@@ -532,7 +532,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # }}
     /// ```
     pub fn process_status(&mut self, status: &Status) -> Result<Feedback> {
-        let last_sig = self.take_last_signal();
+        let last_sig = self.last_signal.take();
         match status {
             Status::Infos => self.infos(),
             Status::DebuggerQuit => Ok(Feedback::Internal(InternalFeedback::Quit)),
@@ -1977,12 +1977,11 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(())
     }
 
+    // NOTE: this is used in the for_hooks macro
+    //
+    /// Get a reference to the [`PluginManager`] of this [`Debugger`]
     #[cfg(feature = "plugins")]
     fn plugins(&self) -> Arc<Mutex<PluginManager>> {
         self.plugins.clone()
-    }
-
-    fn take_last_signal(&mut self) -> Option<Signal> {
-        self.last_signal.take()
     }
 }

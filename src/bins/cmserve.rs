@@ -81,6 +81,8 @@ fn example_statuses() {
         Status::SetRegister(coreminer::Register::r9, 133719),
         Status::DumpRegisters,
         Status::Backtrace,
+        Status::WriteMem(Addr::from(9218098521usize), 0xff),
+        Status::ReadMem(Addr::from(9218098521usize)),
         Status::Run(
             Path::new("/bin/ls").into(),
             vec![c"/etc".into(), c"-la".into()],

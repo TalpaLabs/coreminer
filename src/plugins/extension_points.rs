@@ -1,6 +1,7 @@
 #![allow(missing_docs)] // TODO: add proper docs
 #![allow(clippy::missing_errors_doc)]
 
+use nix::sys::wait::WaitStatus;
 use steckrs::extension_point;
 
 use nix::libc::siginfo_t;
@@ -21,5 +22,5 @@ extension_point!(
     // # Errors
     //
     // Will error when the implementing plugin somehow fails
-    fn pre_handle_signal(&self, feedback: &Feedback, siginfo: &siginfo_t, sig: &Signal) -> Result<Status>;
+    fn pre_handle_signal(&self, feedback: &Feedback, siginfo: &siginfo_t, sig: &Signal, wait_status: &WaitStatus) -> Result<Status>;
 );

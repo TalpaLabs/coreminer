@@ -43,11 +43,11 @@
 use steckrs::{Plugin, PluginManager};
 use tracing::{error, warn};
 
-use self::sigtrap_self::SigtrapInjectorPlugin;
+use self::hello_world::HelloWorldPlugin;
 
 pub mod extension_points;
 
-pub mod sigtrap_self;
+pub mod hello_world;
 
 /// Creates the default plugin manager with built-in plugins already loaded and activated
 ///
@@ -66,14 +66,19 @@ pub mod sigtrap_self;
 ///
 /// let plugin_manager = Arc::new(Mutex::new(default_plugin_manager()));
 /// ```
+///
+/// # Panics
+///
+/// Panics if loading or configuring the default plugins fails.
 #[must_use]
 pub fn default_plugin_manager() -> PluginManager {
     let mut manager = PluginManager::new();
 
-    #[allow(clippy::single_element_loop)] // there will be more later
-    for plugin in [SigtrapInjectorPlugin::new()] {
-        load_plugin(&mut manager, plugin);
-    }
+    let hw_plugin = HelloWorldPlugin::new();
+    load_plugin(&mut manager, hw_plugin);
+    manager
+        .disable_plugin(HelloWorldPlugin::ID)
+        .expect("could not disable hello world plugin");
 
     manager
 }

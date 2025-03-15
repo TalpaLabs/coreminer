@@ -63,10 +63,12 @@ use steckrs::{Plugin, PluginManager};
 use tracing::{error, warn};
 
 use self::hello_world::HelloWorldPlugin;
+use self::sigtrap_self::SigtrapInjectorPlugin;
 
 pub mod extension_points;
 
 pub mod hello_world;
+pub mod sigtrap_self;
 
 /// Creates the default plugin manager with built-in plugins already loaded and activated
 ///
@@ -98,6 +100,9 @@ pub fn default_plugin_manager() -> PluginManager {
     manager
         .disable_plugin(HelloWorldPlugin::ID)
         .expect("could not disable hello world plugin");
+
+    let st_plugin = SigtrapInjectorPlugin::new();
+    load_plugin(&mut manager, st_plugin);
 
     manager
 }
@@ -183,11 +188,11 @@ macro_rules! for_hooks {
     (for $hook_var:ident[$extension_point:ident] in $debugger:ident $body:block) => {
         let plugins = $debugger.plugins();
         trace!("locking plugins");
-        let plugins_lock = plugins
+        let mut plugins_lock = plugins
             .lock()
             .expect("failed to lock the plugin manager of the coreminer debugger");
-        let hooks: Vec<(_, &steckrs::hook::Hook<$extension_point>)> =
-            plugins_lock.get_enabled_hooks_by_ep::<$extension_point>();
+        let hooks: Vec<(_, &mut steckrs::hook::Hook<$extension_point>)> =
+            plugins_lock.get_enabled_hooks_by_ep_mut::<$extension_point>();
         for (_, $hook_var) in hooks {
             {
                 $body

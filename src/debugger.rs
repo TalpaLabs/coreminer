@@ -44,6 +44,7 @@ use crate::disassemble::Disassembly;
 use crate::dwarf_parse::FrameInfo;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::{Feedback, InternalFeedback, Status};
+use crate::plugins::extension_points::EPreSigtrap;
 use crate::ui::DebuggerUI;
 use crate::variable::{VariableExpression, VariableValue};
 use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
@@ -53,10 +54,7 @@ use crate::for_hooks; // does nothing without the feature
 #[cfg(feature = "plugins")]
 use crate::plugins::extension_points::EPreSignalHandler;
 #[cfg(feature = "plugins")]
-use steckrs::{
-    hook::{ExtensionPoint, Hook},
-    PluginManager,
-};
+use steckrs::PluginManager;
 
 /// Manages the debugging session and coordinates between the UI and debuggee
 ///
@@ -322,8 +320,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
                 for_hooks!(
                     for hook[EPreSignalHandler] in self {
-                        self.hook_feedback_loop(hook, |f| {
-                            hook.inner().pre_handle_signal(f, &siginfo, &sig, &wait_status)
+                        self.hook_feedback_loop(hook.name(), |f| {
+                            hook.inner_mut().pre_handle_signal(f, &siginfo, &sig, &wait_status)
                         })?;
                     }
                 );
@@ -555,6 +553,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             Status::GetStack => self.get_stack(),
             Status::ProcMap => self.get_process_map(),
             Status::Run(exe, args) => self.run(exe, args),
+            Status::GetBreakpoint(addr) => self.get_bp(*addr),
+            Status::SetLastSignal(signum) => self.set_last_signal(*signum),
             Status::PluginContinue => Err(DebuggerError::UiUsedPluginContinue),
         }
     }
@@ -1174,6 +1174,27 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         sig: nix::sys::signal::Signal,
         siginfo: nix::libc::siginfo_t,
     ) -> Result<()> {
+        let mut return_early = false;
+
+        for_hooks!(
+            for hook[EPreSigtrap] in self {
+                trace!("process hook {}", hook.name());
+                self.hook_feedback_loop(hook.name(), |f| {
+                    match hook.inner_mut().pre_handle_sigtrap(f, &siginfo, &sig) {
+                        Ok((status, ret_e)) => {
+                            return_early |= ret_e;
+                            Ok(status)
+                        },
+                        Err(e) => Err(e)
+                    }
+                })?;
+            }
+        );
+
+        if return_early {
+            return Ok(());
+        }
+
         info!("debugee received {}: {}", sig.as_str(), siginfo.si_code);
 
         match siginfo.si_code {
@@ -1863,6 +1884,22 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::ProcessMap(pm))
     }
 
+    pub fn get_bp(&self, addr: Addr) -> Result<Feedback> {
+        let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
+
+        let bp = dbge.breakpoints.get(&addr);
+
+        Ok(Feedback::Breakpoint(bp.cloned()))
+    }
+
+    pub fn set_last_signal(&mut self, sig: i32) -> Result<Feedback> {
+        let sig = Signal::try_from(sig)?;
+
+        self.last_signal = Some(sig);
+
+        Ok(Feedback::Ok)
+    }
+
     /// Runs a program for debugging
     ///
     /// This function loads an executable, parses its debug information, and
@@ -2012,22 +2049,23 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// In this example, the hook processes feedback and decides whether to continue or
     /// request more information from the debugger before completing.
     #[cfg(feature = "plugins")]
-    pub fn hook_feedback_loop<F, E: ExtensionPoint>(
-        &mut self,
-        hook: &Hook<E>,
-        mut f: F,
-    ) -> Result<()>
+    pub fn hook_feedback_loop<F>(&mut self, hook_name: &str, mut f: F) -> Result<()>
     where
         F: FnMut(&Feedback) -> Result<Status>,
     {
         let mut feedback = Feedback::Ok;
         let mut status;
+        let mut guard = 0;
         loop {
+            if guard > 10 {
+                return Err(DebuggerError::TooManyPluginIterations);
+            }
+            guard += 1;
             status = match f(&feedback) {
                 Ok(s) => s,
                 Err(e) => {
-                    error!("Error in Hook '{}': {e}", hook.name());
-                    continue;
+                    error!("Error in Hook '{}': {e}", hook_name);
+                    break;
                 }
             };
             if status == Status::PluginContinue {

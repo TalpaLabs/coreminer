@@ -25,7 +25,7 @@ simple_plugin!(
 struct SignalHello;
 impl EPreSignalHandlerF for SignalHello {
     fn pre_handle_signal(
-        &self,
+        &mut self,
         feedback: &Feedback,
         siginfo: &nix::libc::siginfo_t,
         sig: &nix::sys::signal::Signal,

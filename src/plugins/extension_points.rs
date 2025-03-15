@@ -95,6 +95,43 @@ extension_point!(
     /// # Errors
     ///
     /// Returns an error if the hook implementation fails.
-    fn pre_handle_signal(&self, feedback: &Feedback, siginfo: &siginfo_t,
+    fn pre_handle_signal(&mut self, feedback: &Feedback, siginfo: &siginfo_t,
         sig: &Signal, wait_status: &WaitStatus) -> Result<Status>;
+);
+
+extension_point!(
+    /// Extension point for handling SIGTRAP before the debugger processes it
+    ///
+    /// This extension point is called whenever the debugger receives a SIGTRAP from
+    /// the debuggee process. It allows plugins to intercept and handle the SIGTRAP.
+    ///
+    /// SIGTRAP is normally used to stop the debugee process with breakpoints, but the debugee can also
+    /// be compiled with explicit in3 instructions to make debugging harder.
+    EPreSigtrap:
+    /// Functions that must be implemented by hooks for the [`EPreSignalHandler`] extension point
+    EPreSigtrapF;
+    /// Processes a `SIGTRAP` signal from the debuggee before the debugger handles it
+    ///
+    /// This function runs in a feedback loop, allowing the hook to execute debugger
+    /// commands by returning Status values and receiving Feedback from those commands.
+    /// The loop continues until the hook returns Status::PluginContinue.
+    ///
+    /// # Parameters
+    ///
+    /// * `self` - The hook instance
+    /// * `feedback` - The current feedback from the debugger
+    /// * `siginfo` - Signal information structure from the operating system
+    /// * `sig` - The signal type that was received
+    ///
+    /// # Returns
+    ///
+    /// * `Ok((Status, RETURN_EARLY))` - The next command for the debugger to execute, and if the
+    ///                                  function should return early
+    /// * `Err(DebuggerError)` - If an error occurs during signal handling
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the hook implementation fails.
+    fn pre_handle_sigtrap(&mut self, feedback: &Feedback, siginfo: &siginfo_t,
+        sig: &Signal) -> Result<(Status, bool)>;
 );

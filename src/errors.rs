@@ -161,6 +161,8 @@ pub enum DebuggerError {
     AlreadyDisassembled(Addr),
     #[error("The UI used {:?}", crate::feedback::Status::PluginContinue)]
     UiUsedPluginContinue,
+    #[error("A plugin had too many iterations (this is an error in the plugin)")]
+    TooManyPluginIterations,
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)] // serde passes by ref

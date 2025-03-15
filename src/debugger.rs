@@ -2031,7 +2031,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// // Inside a method that has access to hooks
     /// for_hooks!(
     ///     for hook[EPreSignalHandler] in debugger {
-    ///         debugger.hook_feedback_loop(hook, |feedback| {
+    ///         debugger.hook_feedback_loop(hook.name(), |feedback| {
     ///             // Process the feedback and return a new status
     ///             println!("Received feedback: {}", feedback);
     ///

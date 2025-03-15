@@ -33,7 +33,7 @@
 //! struct MySignalHandler;
 //! impl EPreSignalHandlerF for MySignalHandler {
 //!     fn pre_handle_signal(
-//!         &self,
+//!         &mut self,
 //!         feedback: &Feedback,
 //!         siginfo: &siginfo_t,
 //!         sig: &Signal,

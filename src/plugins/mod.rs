@@ -157,7 +157,7 @@ pub fn load_plugin<P: Plugin>(manager: &mut PluginManager, plugin: P) {
 /// // Inside a method that has access to hooks
 /// for_hooks!(
 ///     for hook[EPreSignalHandler] in debugger {
-///         debugger.hook_feedback_loop(hook, |feedback| {
+///         debugger.hook_feedback_loop(hook.name(), |feedback| {
 ///             // Process the feedback and return a new status
 ///             println!("Received feedback: {}", feedback);
 ///
@@ -180,7 +180,6 @@ pub fn load_plugin<P: Plugin>(manager: &mut PluginManager, plugin: P) {
 macro_rules! for_hooks {
     (for $hook_var:ident[$extension_point:ident] in $debugger:ident $body:block) => {
         let plugins = $debugger.plugins();
-        trace!("locking plugins");
         let mut plugins_lock = plugins
             .lock()
             .expect("failed to lock the plugin manager of the coreminer debugger");
@@ -192,6 +191,5 @@ macro_rules! for_hooks {
             }
         }
         drop(plugins_lock);
-        trace!("unlocking plugins");
     };
 }

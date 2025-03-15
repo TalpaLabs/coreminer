@@ -20,7 +20,8 @@
 //! ## Default Plugins
 //!
 //! The module includes several built-in plugins:
-//! - [`HelloWorldPlugin`]: A demo plugin that logs received signals (disabled by default)
+//! - [`SigtrapGuardPlugin`]: A plugin that prevents the detection of the coreminer debugger with
+//!                           a signal handler for SIGTRAP
 //!
 //! ## Usage
 //!
@@ -62,13 +63,11 @@
 use steckrs::{Plugin, PluginManager};
 use tracing::{error, warn};
 
-use self::hello_world::HelloWorldPlugin;
-use self::sigtrap_self::SigtrapGuardPlugin;
+use self::sigtrap_guard::SigtrapGuardPlugin;
 
 pub mod extension_points;
 
-pub mod hello_world;
-pub mod sigtrap_self;
+pub mod sigtrap_guard;
 
 /// Creates the default plugin manager with built-in plugins already loaded and activated
 ///
@@ -94,12 +93,6 @@ pub mod sigtrap_self;
 #[must_use]
 pub fn default_plugin_manager() -> PluginManager {
     let mut manager = PluginManager::new();
-
-    let hw_plugin = HelloWorldPlugin::new();
-    load_plugin(&mut manager, hw_plugin);
-    manager
-        .disable_plugin(HelloWorldPlugin::ID)
-        .expect("could not disable hello world plugin");
 
     let st_plugin = SigtrapGuardPlugin::new();
     load_plugin(&mut manager, st_plugin);

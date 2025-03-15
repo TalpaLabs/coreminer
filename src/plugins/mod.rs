@@ -182,6 +182,7 @@ pub fn load_plugin<P: Plugin>(manager: &mut PluginManager, plugin: P) {
 macro_rules! for_hooks {
     (for $hook_var:ident[$extension_point:ident] in $debugger:ident $body:block) => {
         let plugins = $debugger.plugins();
+        trace!("locking plugins");
         let plugins_lock = plugins
             .lock()
             .expect("failed to lock the plugin manager of the coreminer debugger");
@@ -192,5 +193,7 @@ macro_rules! for_hooks {
                 $body
             }
         }
+        drop(plugins_lock);
+        trace!("unlocking plugins");
     };
 }

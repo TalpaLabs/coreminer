@@ -1,5 +1,60 @@
 # Changelog
 
+## [0.3.0](https://github.com/debugger-bs/coreminer/compare/v0.2.3...v0.3.0)
+
+### ⛰️ Features
+
+- *(plugins)* Implement feedback loop for hooks and enhance extension point mechanism - ([e40522e](https://github.com/debugger-bs/coreminer/commit/e40522e10b01a531009f4610065f39da013814ab))
+- *(plugins)* Add EOnSigTrap - ([31efd7f](https://github.com/debugger-bs/coreminer/commit/31efd7f8059b2a03592eb001c6f230fcbac59d32))
+- *(plugins)* Add plugin manager and extension point PreSignalHandler - ([8a722ad](https://github.com/debugger-bs/coreminer/commit/8a722ad65ea5bdfa7643736c081312d8729ab602))
+- Cmserve and cm loglevel trace only when compiled in debug mode - ([b5167a5](https://github.com/debugger-bs/coreminer/commit/b5167a5b8d9ffe0398c13564ef33895a566bd1a3))
+- Add hello world plugin, printing something on received signal - ([ccc51dd](https://github.com/debugger-bs/coreminer/commit/ccc51dd6048486f045fe738d750d89346b9e22b7))
+
+### 🐛 Bug Fixes
+
+- For_hooks had hardcoded extension point - ([45bd2c8](https://github.com/debugger-bs/coreminer/commit/45bd2c832c817044a8e0d213e301e2815714f249))
+- Set last signal on continuing/stepping #43 - ([0f46bc3](https://github.com/debugger-bs/coreminer/commit/0f46bc3ba576a7bcca27c094a638ec6104427c7a))
+- Wait_signal stops on SIGTERM now - ([0043eba](https://github.com/debugger-bs/coreminer/commit/0043eba3a42d2a4bdf1b991715ac78ba73a03a92))
+- Plugin feedback loop was infinite - ([e735d8a](https://github.com/debugger-bs/coreminer/commit/e735d8a5a4d8069ca8b173a41268e35f3a4aac88))
+- Disable warning for private interfaces regarding internal feedback variant - ([3a29e97](https://github.com/debugger-bs/coreminer/commit/3a29e97e65c50ac10cb5fd15c8ab4a93607376dc))
+- Extension_point had been renamed - ([dd01fc3](https://github.com/debugger-bs/coreminer/commit/dd01fc3d9c3dae2f4b0d296ca6e7fc900c5fb47d))
+
+### 🚜 Refactor
+
+- Remove unused method and briefly documnet Debugger::plugins - ([bc40b8e](https://github.com/debugger-bs/coreminer/commit/bc40b8e6ad98d7af7937ab7440e74336495e3dc6))
+- Move status from ui module to feedback module - ([676670b](https://github.com/debugger-bs/coreminer/commit/676670ba57c7920e4adb0a4b6182bb600b4264d6))
+- Setup default plugins and move for_hooks macro to plugins module - ([284b76b](https://github.com/debugger-bs/coreminer/commit/284b76bf694889dfb81dc1df9da9e5899216946b))
+- Add plugin feature - ([ce28786](https://github.com/debugger-bs/coreminer/commit/ce287866ad12ee0cacdf9418929f5417a0867a0c))
+- Move extension_points to plugins submodule - ([daa039e](https://github.com/debugger-bs/coreminer/commit/daa039eef7150af187985f2936a0a6f450f21f26))
+- Simplify serialization of DebuggerError - ([7d8fa38](https://github.com/debugger-bs/coreminer/commit/7d8fa383c2b3142fd28dad24f6b2fa35c216dd82))
+- Move actual processing of status to new function process_status - ([5f0a8ac](https://github.com/debugger-bs/coreminer/commit/5f0a8aca38ede41af570a810b3a827c537b4ed97))
+
+### 📚 Documentation
+
+- Fix doc examples for addition of signal sending - ([695d866](https://github.com/debugger-bs/coreminer/commit/695d866d2ce8fbba3b65cbf359c97d817f01281b))
+- Fix and simplify plugin mod example - ([f72ff7e](https://github.com/debugger-bs/coreminer/commit/f72ff7e275f169614fec29b9625a6c87f75d1d5c))
+- Default plugin is HelloWorld, disabled by default - ([d3f4bf9](https://github.com/debugger-bs/coreminer/commit/d3f4bf9ff86fd6c44f7c569c0e5bb3e64167449b))
+- Add note to hello world module (it is an example plugin) - ([79df792](https://github.com/debugger-bs/coreminer/commit/79df79205f5c882a2727982669c53119b697674b))
+- Document extension_points module - ([26b13fe](https://github.com/debugger-bs/coreminer/commit/26b13fea3bb0758546da69d308df3fbb28f21b25))
+- Document plugins/mod.rs - ([992ce76](https://github.com/debugger-bs/coreminer/commit/992ce766c8b0387f0f6e85e0bba50dcdafcc4cf4))
+- Document hook_feedback_loop, make Debugger::plugins pub, fix macro for_hooks - ([224ce34](https://github.com/debugger-bs/coreminer/commit/224ce34752499f16a8cd43a2feb1e07b41c64f72))
+- Update rustdoc parts - ([b2f51a6](https://github.com/debugger-bs/coreminer/commit/b2f51a615d2cc1e0dbe29fd01bb24c68db5e6dca))
+- Add documentation to Addr::NULL - ([0ff685c](https://github.com/debugger-bs/coreminer/commit/0ff685cdf20d8e04c1e6214d6db806c5f97a6426))
+
+### ⚙️ Miscellaneous Tasks
+
+- Use helloworld plugin by default (disabled) - ([2408ac8](https://github.com/debugger-bs/coreminer/commit/2408ac8ca940a603b066e253e4b43457f1fefdf3))
+- Have cargo ci only run on PR or in master branch - ([0a9e602](https://github.com/debugger-bs/coreminer/commit/0a9e602e2293e86f9824ba91d5b53ceeabbd531e))
+- Add a few status variants to the cmserve example output - ([25cf125](https://github.com/debugger-bs/coreminer/commit/25cf1252c0a5f87d96451a93efd965c2bcc75bd5))
+- Update steckrs to v0.3.* - ([df555a4](https://github.com/debugger-bs/coreminer/commit/df555a4b65aba4c76a33d6fdad27445d57e6ba24))
+- Add signals example - ([00d2392](https://github.com/debugger-bs/coreminer/commit/00d239247e87476149927b79ec532071de1c87af))
+- Add sleeper example - ([9ccf36b](https://github.com/debugger-bs/coreminer/commit/9ccf36bfe3db4f4e780af8d11a8fc60afee576d3))
+- Add hello world plugin - ([ef1b1ca](https://github.com/debugger-bs/coreminer/commit/ef1b1cabe5eb0d6d4af973b9ded7988b575ae0b1))
+- Add comments and disable missing docs for extension_points module for now - ([08d5b28](https://github.com/debugger-bs/coreminer/commit/08d5b28d78f9b016c88e6b5570fca777cfcf90a5))
+- Automatic Rust CI changes - ([7e01d31](https://github.com/debugger-bs/coreminer/commit/7e01d31637d9c0abff7aba9dba0a67d7b20d7b35))
+- Update to steckrs v0.2.0 - ([baa3fcb](https://github.com/debugger-bs/coreminer/commit/baa3fcbf92bc6da0f87247c1b27495bac5f4db20))
+
+
 ## [0.2.3](https://github.com/debugger-bs/coreminer/compare/v0.2.2...v0.2.3)
 
 ### ⛰️ Features

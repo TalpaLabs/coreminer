@@ -20,7 +20,7 @@
 //! ## Default Plugins
 //!
 //! The module includes several built-in plugins:
-//! - [`SigtrapInjectorPlugin`]: A demo plugin that logs received signals
+//! - [`HelloWorldPlugin`]: A demo plugin that logs received signals (disabled by default)
 //!
 //! ## Usage
 //!

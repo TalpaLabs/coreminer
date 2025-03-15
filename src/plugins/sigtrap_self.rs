@@ -30,7 +30,6 @@ impl EPreSigtrapF for SigtrapInjectionGuard {
         siginfo: &nix::libc::siginfo_t,
         sig: &nix::sys::signal::Signal,
     ) -> crate::errors::Result<(crate::feedback::Status, bool)> {
-        debug!("feedback: {feedback}");
         if *sig != SIGTRAP {
             return Ok((Status::PluginContinue, false));
         }
@@ -62,17 +61,14 @@ impl EPreSigtrapF for SigtrapInjectionGuard {
         if let Some(bp) = maybe_bp {
             info!("It's just a regular breakpoint: {bp:?}");
             Ok((Status::PluginContinue, false))
+        } else if matches!(feedback, Feedback::Ok) {
+            // we're done
+            Ok((Status::PluginContinue, true))
         } else {
             warn!("The debugger stopped with SIGTRAP, but there is no breakpoint there!");
             warn!("This is likely a self inserted interrupt by the debuggee program!");
             warn!("Forwarding the SIGTRAP to the debuggee");
-
-            if matches!(feedback, Feedback::Ok) {
-                // we're done
-                Ok((Status::PluginContinue, true))
-            } else {
-                Ok((Status::SetLastSignal(siginfo.si_signo), false))
-            }
+            Ok((Status::SetLastSignal(siginfo.si_signo), false))
         }
     }
 }

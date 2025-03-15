@@ -135,7 +135,7 @@ use steckrs::{
 ///     }
 ///
 ///     // Step over a single instruction
-///     debugger.single_step()?;
+///     debugger.single_step(None)?;
 ///
 ///     // more automated debugging...
 ///
@@ -848,11 +848,11 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # // Assume debuggee is already running
     /// #
     /// // Step through one instruction
-    /// debugger.single_step().unwrap();
+    /// debugger.single_step(None).unwrap();
     ///
     /// // Step through multiple instructions
     /// for _ in 0..5 {
-    ///     debugger.single_step().unwrap();
+    ///     debugger.single_step(None).unwrap();
     /// }
     ///
     /// # }}
@@ -911,7 +911,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # // Assume debuggee is already running and in a function
     /// #
     /// // Step out of the current function
-    /// debugger.step_out().unwrap();
+    /// debugger.step_out(None).unwrap();
     ///
     /// # }}
     /// ```
@@ -1289,7 +1289,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # // Assume debuggee is already running
     /// #
     /// // Step into the next function call
-    /// debugger.step_into().unwrap();
+    /// debugger.step_into(None).unwrap();
     ///
     /// # }}
     /// ```

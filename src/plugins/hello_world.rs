@@ -1,3 +1,7 @@
+// NOTE: this is an example plugin and currently not used.
+// Perhaps it should be moved to the examples directory, but I have yet to add a consistent way to
+// load "external" plugins to the coreminer
+
 use nix::sys::wait::WaitStatus;
 use steckrs::simple_plugin;
 use tracing::info;

@@ -28,16 +28,35 @@
 //! The [`for_hooks!`](crate::for_hooks) macro provides a convenient way to iterate over
 //! all enabled hooks for a specific extension point.
 //!
-//! ```rust
-//! // Example using the for_hooks! macro
+//! # Examples
+//!
+//! ```no_run
+//! # use steckrs::hook::ExtensionPoint;
+//! # use steckrs::extension_point;
+//! # use coreminer::feedback::{Feedback, Status};
+//! # use coreminer::plugins::extension_points::EPreSignalHandler;
+//! # use coreminer::for_hooks;
+//! # use coreminer::ui::DebuggerUI;
+//! # use coreminer::debugger::Debugger;
+//! # use coreminer::addr::Addr;
+//!
+//! // use some extension point
+//!
+//! extension_point!(
+//!     EEasyPoint: EEasyPointF;
+//!     fn hello(&self) -> String;
+//! );
+//!
+//! # fn helper<UI: DebuggerUI>(debugger: &mut Debugger<UI>) {
+//!
+//! // Inside a method that has access to hooks
+//! // Iterate over all activated hooks for that extension point
 //! for_hooks!(
-//!     for hook[EPreSignalHandler] in self {
-//!         self.hook_feedback_loop(hook, |feedback| {
-//!             // Process feedback and return Status
-//!             Ok(Status::PluginContinue)
-//!         })?;
+//!     for hook[EEasyPoint] in debugger {
+//!         println!("{}", hook.inner().hello());
 //!     }
 //! );
+//! # }
 //! ```
 
 use steckrs::{Plugin, PluginManager};

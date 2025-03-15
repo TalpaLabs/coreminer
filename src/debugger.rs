@@ -44,7 +44,6 @@ use crate::disassemble::Disassembly;
 use crate::dwarf_parse::FrameInfo;
 use crate::errors::{DebuggerError, Result};
 use crate::feedback::{Feedback, InternalFeedback, Status};
-use crate::plugins::extension_points::EPreSigtrap;
 use crate::ui::DebuggerUI;
 use crate::variable::{VariableExpression, VariableValue};
 use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
@@ -52,7 +51,7 @@ use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 // plugin stuff
 use crate::for_hooks; // does nothing without the feature
 #[cfg(feature = "plugins")]
-use crate::plugins::extension_points::EPreSignalHandler;
+use crate::plugins::extension_points::{EPreSignalHandler, EPreSigtrap};
 #[cfg(feature = "plugins")]
 use steckrs::PluginManager;
 

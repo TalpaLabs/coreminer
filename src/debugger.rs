@@ -1895,6 +1895,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     pub fn set_last_signal(&mut self, sig: i32) -> Result<Feedback> {
         let sig = Signal::try_from(sig)?;
 
+        info!("set last signal to {sig}");
         self.last_signal = Some(sig);
 
         Ok(Feedback::Ok)

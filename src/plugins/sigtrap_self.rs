@@ -1,6 +1,7 @@
 use nix::sys::signal::Signal::SIGTRAP;
 use steckrs::simple_plugin;
-use tracing::{debug, info, warn};
+use tracing::field::debug;
+use tracing::{debug, info, trace, warn};
 
 use crate::addr::Addr;
 use crate::breakpoint::Breakpoint;
@@ -20,7 +21,9 @@ simple_plugin!(
 #[derive(Default)]
 struct SigtrapInjectionGuard {
     rip: Option<Addr>,
-    bp: Option<Breakpoint>,
+    // it looks ridiculous but it is exactly what we need here
+    #[allow(clippy::option_option)]
+    bp: Option<Option<Breakpoint>>,
 }
 
 impl EPreSigtrapF for SigtrapInjectionGuard {
@@ -30,12 +33,16 @@ impl EPreSigtrapF for SigtrapInjectionGuard {
         siginfo: &nix::libc::siginfo_t,
         sig: &nix::sys::signal::Signal,
     ) -> crate::errors::Result<(crate::feedback::Status, bool)> {
+        debug!("feedback: {feedback}");
         if *sig != SIGTRAP {
             return Ok((Status::PluginContinue, false));
         }
 
         let rip = match (feedback, self.rip) {
-            (_, Some(addr)) => addr,
+            (_, Some(addr)) => {
+                trace!("using stored rip");
+                addr
+            }
             (crate::feedback::Feedback::Registers(regs), None) => {
                 self.rip = Some(regs.rip.into());
                 self.rip.unwrap()
@@ -43,11 +50,15 @@ impl EPreSigtrapF for SigtrapInjectionGuard {
             (_, _) => return Ok((Status::DumpRegisters, false)),
         };
 
-        debug!("rip: {rip}");
-
-        let maybe_bp: Option<&Breakpoint> = match (feedback, self.bp.as_ref()) {
-            (_, Some(bp)) => Some(bp),
-            (crate::feedback::Feedback::Breakpoint(bp), None) => bp.as_ref(),
+        let maybe_bp: Option<&Breakpoint> = match (feedback, &self.bp) {
+            (_, Some(bp)) => {
+                trace!("using stored bp");
+                bp.as_ref()
+            }
+            (crate::feedback::Feedback::Breakpoint(bp), None) => {
+                self.bp = Some(bp.clone());
+                bp.as_ref()
+            }
             _ => return Ok((Status::GetBreakpoint(rip), false)),
         };
 
@@ -56,10 +67,12 @@ impl EPreSigtrapF for SigtrapInjectionGuard {
             Ok((Status::PluginContinue, false))
         } else {
             warn!("The debugger stopped with SIGTRAP, but there is no breakpoint there!");
+            warn!("This is likely a self inserted interrupt by the debuggee program!");
+            warn!("Forwarding the SIGTRAP to the debuggee");
 
             if matches!(feedback, Feedback::Ok) {
                 // we're done
-                Ok((Status::PluginContinue, false))
+                Ok((Status::PluginContinue, true))
             } else {
                 Ok((Status::SetLastSignal(siginfo.si_signo), false))
             }

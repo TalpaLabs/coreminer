@@ -1,6 +1,6 @@
 use nix::sys::signal::Signal::SIGTRAP;
 use steckrs::simple_plugin;
-use tracing::{debug, info, trace, warn};
+use tracing::{info, trace, warn};
 
 use crate::addr::Addr;
 use crate::breakpoint::Breakpoint;
@@ -9,6 +9,12 @@ use crate::feedback::{Feedback, Status};
 use super::extension_points::{EPreSigtrap, EPreSigtrapF};
 
 simple_plugin!(
+    /// This plugin detects if a `SIGTRAP` comes from the debugger or the debuggee. If it comes
+    /// from the debuggee, the `SIGTRAP` is forwarded to the debuggee.
+    ///
+    /// This functionality prevents the detection of the debugger by inserting an `int3`
+    /// instruction into the own code, registering a handler, and checking if the handler was
+    /// executed, because all signals that the debuggee expects actually arrive at the debuggee.
     SigtrapGuardPlugin,
     "sigtrap_guard",
     "Handles programs that use int3 on their own and register their own signal handler for SIGTRAP",

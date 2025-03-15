@@ -167,7 +167,7 @@ macro_rules! for_hooks {
             .lock()
             .expect("failed to lock the plugin manager of the coreminer debugger");
         let hooks: Vec<(_, &steckrs::hook::Hook<$extension_point>)> =
-            plugins_lock.get_enabled_hooks_by_ep::<EPreSignalHandler>();
+            plugins_lock.get_enabled_hooks_by_ep::<$extension_point>();
         for (_, $hook_var) in hooks {
             {
                 $body

@@ -63,7 +63,7 @@ use steckrs::{Plugin, PluginManager};
 use tracing::{error, warn};
 
 use self::hello_world::HelloWorldPlugin;
-use self::sigtrap_self::SigtrapInjectorPlugin;
+use self::sigtrap_self::SigtrapGuardPlugin;
 
 pub mod extension_points;
 
@@ -101,7 +101,7 @@ pub fn default_plugin_manager() -> PluginManager {
         .disable_plugin(HelloWorldPlugin::ID)
         .expect("could not disable hello world plugin");
 
-    let st_plugin = SigtrapInjectorPlugin::new();
+    let st_plugin = SigtrapGuardPlugin::new();
     load_plugin(&mut manager, st_plugin);
 
     manager

@@ -1,19 +1,16 @@
 use nix::sys::signal::Signal::SIGTRAP;
 use steckrs::simple_plugin;
-use tracing::field::debug;
 use tracing::{debug, info, trace, warn};
 
 use crate::addr::Addr;
 use crate::breakpoint::Breakpoint;
-use crate::errors::DebuggerError;
 use crate::feedback::{Feedback, Status};
-use crate::ui::DebuggerUI;
 
 use super::extension_points::{EPreSigtrap, EPreSigtrapF};
 
 simple_plugin!(
-    SigtrapInjectorPlugin,
-    "sigtrap_injector",
+    SigtrapGuardPlugin,
+    "sigtrap_guard",
     "Handles programs that use int3 on their own and register their own signal handler for SIGTRAP",
     hooks: [(EPreSigtrap, SigtrapInjectionGuard::default())]
 );

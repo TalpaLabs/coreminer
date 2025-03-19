@@ -25,7 +25,7 @@ use tracing::{error, info, trace, warn};
 use super::{DebuggerUI, Register, Status};
 use crate::errors::Result;
 use crate::feedback::Feedback;
-use crate::Addr;
+use crate::{Addr, Word};
 
 /// Command-line interface for the debugger
 ///
@@ -401,7 +401,7 @@ impl DebuggerUI for CliUi {
                 };
 
                 let value = if let Some(val) = self.get_number(2) {
-                    val as i64
+                    val as Word
                 } else {
                     error!("Invalid value for wmem");
                     continue;

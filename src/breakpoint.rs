@@ -15,18 +15,18 @@ use serde::Serialize;
 use tracing::{error, trace};
 
 use crate::errors::{DebuggerError, Result};
-use crate::{mem_read_word, mem_write_word, Addr};
+use crate::{mem_read_word, mem_write_word, Addr, Word};
 
 /// Mask to set all bits to 1 (using two's complement)
-pub const MASK_ALL: i64 = -1; // yup for real, two's complement
+pub const MASK_ALL: Word = Word::MAX;
 /// The INT3 instruction byte (0xCC) used for software breakpoints
 pub const INT3_BYTE: u8 = 0xcc;
 /// `INT3_BYTE` represented as a [`crate::Word`]
-pub const INT3: i64 = INT3_BYTE as i64;
+pub const INT3: Word = INT3_BYTE as Word;
 /// Mask to isolate the lowest byte in a Word
-pub const WORD_MASK: i64 = 0x0000_0000_0000_00ff;
+pub const WORD_MASK: Word = 0x0000_0000_0000_00ff;
 /// Inverse of `WORD_MASK` (all bits set except the lowest byte)
-pub const WORD_MASK_INV: i64 = MASK_ALL ^ WORD_MASK;
+pub const WORD_MASK_INV: Word = MASK_ALL ^ WORD_MASK;
 
 /// Represents a breakpoint in the debugged process
 ///
@@ -147,11 +147,11 @@ impl Breakpoint {
             return Err(DebuggerError::BreakpointIsAlreadyEnabled);
         }
 
-        let data_word: i64 = mem_read_word(self.pid, self.addr)?;
+        let data_word: Word = mem_read_word(self.pid, self.addr)?;
         trace!("original word: {data_word:016x}");
         self.saved_data = Some((data_word & WORD_MASK) as u8);
         trace!("saved_byte: {:02x}", self.saved_data.as_ref().unwrap());
-        let data_word_modified: i64 = (data_word & WORD_MASK_INV) | INT3;
+        let data_word_modified: Word = (data_word & WORD_MASK_INV) | INT3;
         trace!("modified word: {data_word_modified:016x}");
         mem_write_word(self.pid, self.addr, data_word_modified)?;
 
@@ -194,10 +194,10 @@ impl Breakpoint {
             return Err(DebuggerError::BreakpointIsAlreadyDisabled);
         }
 
-        let data_word: i64 = mem_read_word(self.pid, self.addr)?;
+        let data_word: Word = mem_read_word(self.pid, self.addr)?;
         trace!("breakpo: {data_word:016x}");
-        let data_word_restored: i64 =
-            (data_word & WORD_MASK_INV) | i64::from(self.saved_data.unwrap());
+        let data_word_restored: Word =
+            (data_word & WORD_MASK_INV) | Word::from(self.saved_data.unwrap());
         trace!("restore: {data_word_restored:016x}");
         mem_write_word(self.pid, self.addr, data_word_restored)?;
         self.saved_data = None;

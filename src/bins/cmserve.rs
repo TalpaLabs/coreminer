@@ -9,6 +9,7 @@ use coreminer::ui::json::{Input, JsonUI};
 
 use clap::Parser;
 use coreminer::feedback::Status;
+use coreminer::Word;
 use serde::de::Error;
 use tracing::trace;
 
@@ -102,7 +103,9 @@ fn example_statuses() {
 fn example_feedbacks() {
     let feedbacks: &[Feedback] = &[
         Feedback::Ok,
-        Feedback::Word(921589215i64),
+        Feedback::Word(921589215 as Word),
+        Feedback::Word(Word::MAX),
+        Feedback::Word(Word::MIN),
         Feedback::Variable(coreminer::variable::VariableValue::Bytes(vec![
             19, 13, 13, 13, 17,
         ])),

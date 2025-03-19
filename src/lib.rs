@@ -94,7 +94,7 @@ pub mod variable;
 pub mod plugins;
 
 /// Type alias for machine word-sized integers, used for register values and memory contents
-pub type Word = i64;
+pub type Word = usize;
 /// Number of bytes in a [Word] (8 bytes on a 64-bit system)
 pub const WORD_BYTES: usize = Word::BITS as usize / 8;
 
@@ -220,12 +220,12 @@ impl TryFrom<gimli::Register> for Register {
 
 /// Writes a word-sized value to the specified process memory address
 pub(crate) fn mem_write_word(pid: Pid, addr: Addr, value: Word) -> Result<()> {
-    Ok(ptrace::write(pid, addr.into(), value)?)
+    Ok(ptrace::write(pid, addr.into(), value as i64)?)
 }
 
 /// Reads a word-sized value from the specified process memory address
 pub(crate) fn mem_read_word(pid: Pid, addr: Addr) -> Result<Word> {
-    Ok(ptrace::read(pid, addr.into())?)
+    Ok(ptrace::read(pid, addr.into())? as Word)
 }
 
 /// Reads a slice of bytes from process memory at the specified address

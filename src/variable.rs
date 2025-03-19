@@ -418,7 +418,7 @@ impl Debuggee {
                 VariableValue::Bytes(buf)
             }
             gimli::Location::Register { register } => {
-                VariableValue::Other(get_reg(self.pid, register.try_into()?)? as i64)
+                VariableValue::Other(get_reg(self.pid, register.try_into()?)? as Word)
             }
             other => unimplemented!("gimli location of type {other:?} is not implemented"),
         };

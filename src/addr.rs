@@ -175,12 +175,6 @@ impl From<usize> for Addr {
     }
 }
 
-impl From<Word> for Addr {
-    fn from(value: Word) -> Self {
-        Addr(value as usize)
-    }
-}
-
 impl From<u64> for Addr {
     fn from(value: u64) -> Self {
         Addr(value as usize)

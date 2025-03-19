@@ -17,7 +17,7 @@ use std::io::{BufRead, BufReader};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tracing::error;
+use tracing::{error, trace};
 
 use crate::errors::Result;
 use crate::feedback::Feedback;
@@ -143,6 +143,7 @@ impl DebuggerUI for JsonUI {
                     continue;
                 }
             };
+            trace!("got input: {input:?}");
             return Ok(input.status);
         }
     }

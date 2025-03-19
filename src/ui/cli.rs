@@ -184,6 +184,24 @@ impl CliUi {
         }
     }
 
+    fn get_bool(&self, index: usize) -> Option<bool> {
+        if index >= self.buf_preparsed.len() {
+            return None;
+        }
+
+        let mut raw = self.buf_preparsed[index].clone();
+        trace!("raw bool: {raw}");
+
+        match raw.to_lowercase().as_str() {
+            "true" | "1" => Some(true),
+            "false" | "0" => Some(false),
+            other => {
+                warn!("Failed to parse '{}' as bool", other);
+                None
+            }
+        }
+    }
+
     /// Ensures a command has the correct number of arguments
     ///
     /// # Parameters
@@ -439,6 +457,28 @@ impl DebuggerUI for CliUi {
                     error!("Only 'set' and 'get' are valid subcommands for 'regs'");
                 }
                 continue;
+            } else if string_matches(cmd, &["plugin"]) {
+                #[cfg(not(feature = "plugins"))]
+                {
+                    error!("this version of the coreminer has not been built with plugin support");
+                    continue;
+                }
+                if self.buf_preparsed.len() < 2 {
+                    unimplemented!()
+                    // return Ok(Status::PluginGetAll);
+                }
+                let plugin_id: steckrs::PluginID = self.buf_preparsed[1].clone().leak();
+
+                if self.buf_preparsed.len() == 3 {
+                    if let Some(status) = self.get_bool(2) {
+                        return Ok(Status::PluginSetEnable(plugin_id.into(), status));
+                    } else {
+                        error!("Invalid address for delbreak");
+                        continue;
+                    }
+                } else {
+                    return Ok(Status::PluginGetStatus(plugin_id.into()));
+                }
             } else if string_matches(cmd, &["help", "h", "?"]) {
                 show_help();
                 continue;
@@ -471,31 +511,40 @@ fn string_matches(cmd: &str, prefixes: &[&str]) -> bool {
 ///
 /// Prints a list of all available commands and their usage to stdout.
 fn show_help() {
-    println!("\nCoreminer Debugger Help:\n");
-    println!("  run PATH [ARGS]                    - Run program at PATH with optional arguments");
-    println!("  c, cont                            - Continue execution");
-    println!("  s, step                            - Step one instruction");
-    println!("  si                                 - Step into function call");
-    println!("  su, sov                            - Step over function call");
-    println!("  so                                 - Step out of current function");
-    println!("  bp, break ADDR                     - Set breakpoint at address (hex)");
-    println!("  dbp, delbreak ADDR                 - Delete breakpoint at address (hex)");
-    println!("  d, dis ADDR LEN [--literal]        - Disassemble LEN bytes at ADDR");
-    println!("  bt                                 - Show backtrace");
-    println!("  stack                              - Show stack");
-    println!("  info                               - Show debugger info");
-    println!("  pm                                 - Show process memory map");
-    println!("  regs get                           - Show register values");
-    println!("  regs set REG VAL                   - Set register REG to value VAL (hex)");
-    println!("  rmem ADDR                          - Read memory at address (hex)");
-    println!("  wmem ADDR VAL                      - Write value to memory at address (hex)");
-    println!("  sym, gsym NAME                     - Look up symbol by name");
-    println!("  var NAME                           - Read variable value");
-    println!("  vars NAME VAL                      - Write value to variable");
-    println!("  set stepper N                      - Set stepper to auto-step N times");
-    println!("  q, quit, exit                      - Exit the debugger");
-    println!("  help, h, ?                         - Show this help");
-    println!("\nAddresses and values should be in hexadecimal (with or without 0x prefix)");
+    println!(
+    concat!(
+    "\nCoreminer Debugger Help:\n",
+    "\n  run PATH:str [ARGS:str ...]             - Run program at PATH with optional arguments",
+    "\n  c, cont                                 - Continue execution",
+    "\n  s, step                                 - Step one instruction",
+    "\n  si                                      - Step into function call",
+    "\n  su, sov                                 - Step over function call",
+    "\n  so                                      - Step out of current function",
+    "\n  bp, break ADDR:num                      - Set breakpoint at address (hex)",
+    "\n  dbp, delbreak ADDR:num                  - Delete breakpoint at address (hex)",
+    "\n  d, dis ADDR:num LEN:num [--literal]     - Disassemble LEN bytes at ADDR",
+    "\n  bt                                      - Show backtrace",
+    "\n  stack                                   - Show stack",
+    "\n  info                                    - Show debugger info",
+    "\n  pm                                      - Show process memory map",
+    "\n  regs get                                - Show register values",
+    "\n  regs set REG:str VAL:num                - Set register REG to value VAL (hex)",
+    "\n  rmem ADDR:num                           - Read memory at address (hex)",
+    "\n  wmem ADDR:num VAL:num                   - Write value to memory at address (hex)",
+    "\n  sym, gsym NAME:str                      - Look up symbol by name",
+    "\n  var NAME:str                            - Read variable value",
+    "\n  vars NAME:str VAL:num                   - Write value to variable",
+    "\n  set stepper N                           - Set stepper to auto-step N times",
+    "\n  q, quit, exit                           - Exit the debugger",
+    "\n  plugin ID:str [STATUS:bool]             - Show the status of a plugin or enable/disable it",
+    "\n  plugins                                 - Get a list of all loaded plugins",
+    "\n  help, h, ?                              - Show this help",
+    "\n\nAddresses and values should be in hexadecimal (with or without 0x prefix)",
+    "\n\nInput Types:",
+    "\n  FOO:num is a positive whole number in hexadecimal (optional 0x prefix)",
+    "\n  FOO:str is a string",
+    "\n  FOO:bool either of 'true', 'false', '1', or '0'",
+    ));
 }
 
 fn path_to_cstring_or_empty(path: &Path) -> CString {

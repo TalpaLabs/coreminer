@@ -2227,8 +2227,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         let mut plugins = self.plugins.lock().expect("could not lock plugin_manager");
         if status {
             plugins.enable_plugin(id.clone().into())?;
+            info!("enabled plugin {id}");
         } else {
             plugins.disable_plugin(id.clone().into())?;
+            info!("disabled plugin {id}");
         }
         Ok(Feedback::Ok)
     }

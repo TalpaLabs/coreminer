@@ -36,6 +36,7 @@ use nix::sys::signal::Signal;
 use nix::sys::wait::{waitpid, WaitPidFlag, WaitStatus};
 use nix::unistd::execv;
 use tracing::{debug, error, info, trace, warn};
+use which::which;
 
 use crate::breakpoint::Breakpoint;
 use crate::consts::{SI_KERNEL, TRAP_BRKPT, TRAP_TRACE};
@@ -226,7 +227,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// This function will panic if the the argument vector cannot be built from the path and the
     /// arguments. This can happen if the path has unicode.
     fn launch_debuggee(&mut self, path: impl AsRef<Path>, arguments: &[CString]) -> Result<()> {
-        let path: PathBuf = path.as_ref().canonicalize().unwrap_or(path.as_ref().into());
+        let path = path.as_ref();
         let path_as_cstring = CString::new(path.to_string_lossy().as_bytes())
             .expect("could not make argv from given path and args");
         let mut argv: Vec<&CString> = vec![&path_as_cstring];
@@ -260,6 +261,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                 }
                 nix::unistd::ForkResult::Child => {
                     let cpath = CString::new(path.to_string_lossy().to_string().as_str())?;
+                    trace!("CHILD: requested run with executable={cpath:?} and argv={argv:?}");
                     ptrace::traceme()
                         .inspect_err(|e| eprintln!("error while doing traceme: {e}"))?;
                     execv(&cpath, &argv)?; // NOTE: unsure if args[0] is set to the executable
@@ -2063,15 +2065,22 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             return Err(DebuggerError::AlreadyRunning);
         }
 
+        debug!(
+            "exe to run are: {}",
+            executable_path.as_ref().to_string_lossy()
+        );
+        debug!("arguments to run are: {arguments:?}");
+
         // NOTE: the lifetimes of the raw object data have given us many problems. It would be
         // possible to read the object data out in the main function and passing it to the
         // constructor of Debugger, but that would mean that we cannot debug a different program in
         // the same session.
         let exe: &Path = executable_path.as_ref();
-        trace!("requested run with executable={exe:?} and args={arguments:?}");
+        let exe: PathBuf = which(exe).unwrap_or(exe.into());
+        info!("using executable path '{}'", exe.to_string_lossy());
 
         // First, read the file data
-        self.stored_obj_data_raw = std::fs::read(exe)?;
+        self.stored_obj_data_raw = std::fs::read(&exe)?;
 
         // Create a new scope to handle the borrow checker
         {
@@ -2086,7 +2095,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         }
 
         // Now launch the debuggee
-        self.launch_debuggee(exe, arguments)?;
+        self.launch_debuggee(&exe, arguments)?;
 
         Ok(Feedback::Ok)
     }

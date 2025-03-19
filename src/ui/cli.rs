@@ -136,16 +136,21 @@ impl CliUi {
     /// }
     /// ```
     pub fn get_input(&mut self) -> Result<()> {
-        self.buf = dialoguer::Input::with_theme(&dialoguer::theme::ColorfulTheme::default())
-            .history_with(&mut self.history)
-            .interact_text()?;
-        trace!("processing '{}'", self.buf);
-        self.buf_preparsed = self
-            .buf
-            .split_whitespace()
-            .map(std::string::ToString::to_string)
-            .collect();
-        trace!("preparsed: {:?}", self.buf_preparsed);
+        loop {
+            self.buf = dialoguer::Input::with_theme(&dialoguer::theme::ColorfulTheme::default())
+                .history_with(&mut self.history)
+                .interact_text()?;
+            trace!("processing '{}'", self.buf);
+            self.buf_preparsed = match shlex::split(&self.buf) {
+                None => {
+                    error!("unexpected input");
+                    continue;
+                }
+                Some(thing) => thing,
+            };
+            trace!("preparsed: {:?}", self.buf_preparsed);
+            break;
+        }
         Ok(())
     }
 
@@ -357,27 +362,24 @@ impl DebuggerUI for CliUi {
                     continue;
                 }
 
-                match PathBuf::from_str(self.buf_preparsed[1].as_str()) {
-                    Ok(path) => {
-                        let mut args: Vec<CString> = vec![path_to_cstring_or_empty(&path)];
+                let executable: PathBuf = PathBuf::from(self.buf_preparsed[1].clone());
+                let actual_args: Vec<CString> = if self.buf_preparsed.len() > 2 {
+                    let mut buf = Vec::new();
 
-                        for arg in self.buf_preparsed.iter().skip(2) {
-                            match CString::new(arg.clone()) {
-                                Ok(cs) => args.push(cs),
-                                Err(e) => {
-                                    error!("Error creating CString for argument '{}': {}", arg, e);
-                                    break;
-                                }
+                    for s in &self.buf_preparsed[2..] {
+                        buf.push(match CString::new(s.as_str()) {
+                            Ok(s) => s,
+                            Err(e) => {
+                                error!("could not make '{s}' into CString: {e}");
+                                continue;
                             }
-                        }
-
-                        return Ok(Status::Run(path, args));
+                        })
                     }
-                    Err(e) => {
-                        error!("Invalid path: {}", e);
-                    }
-                }
-                continue;
+                    buf
+                } else {
+                    Vec::new()
+                };
+                return Ok(Status::Run(executable, actual_args));
             } else if string_matches(cmd, &["bt"]) {
                 return Ok(Status::Backtrace);
             } else if string_matches(cmd, &["so"]) {

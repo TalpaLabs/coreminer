@@ -26,7 +26,7 @@
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::fmt::Display;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 #[cfg(feature = "plugins")]
 use std::sync::{Arc, Mutex};
 
@@ -205,7 +205,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # Parameters
     ///
     /// * `path` - Path to the executable
-    /// * `args` - Command-line arguments for the executable
+    /// * `arguments` - Command-line arguments for the executable
     ///
     /// # Returns
     ///
@@ -220,8 +220,17 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// - Debug information cannot be parsed
     /// - The process cannot be forked
     /// - ptrace cannot be initialized
-    fn launch_debuggee(&mut self, path: impl AsRef<Path>, args: &[CString]) -> Result<()> {
-        let path: &Path = path.as_ref();
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the the argument vector cannot be built from the path and the
+    /// arguments. This can happen if the path has unicode.
+    fn launch_debuggee(&mut self, path: impl AsRef<Path>, arguments: &[CString]) -> Result<()> {
+        let path: PathBuf = path.as_ref().canonicalize().unwrap_or(path.as_ref().into());
+        let path_as_cstring = CString::new(path.to_string_lossy().as_bytes())
+            .expect("could not make argv from given path and args");
+        let mut argv: Vec<&CString> = vec![&path_as_cstring];
+        argv.extend(arguments);
         if !path.exists() {
             let err = DebuggerError::ExecutableDoesNotExist;
             error!("{err}");
@@ -253,7 +262,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                     let cpath = CString::new(path.to_string_lossy().to_string().as_str())?;
                     ptrace::traceme()
                         .inspect_err(|e| eprintln!("error while doing traceme: {e}"))?;
-                    execv(&cpath, args)?; // NOTE: unsure if args[0] is set to the executable
+                    execv(&cpath, &argv)?; // NOTE: unsure if args[0] is set to the executable
                     unreachable!()
                 }
             },
@@ -2059,6 +2068,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         // constructor of Debugger, but that would mean that we cannot debug a different program in
         // the same session.
         let exe: &Path = executable_path.as_ref();
+        trace!("requested run with executable={exe:?} and args={arguments:?}");
 
         // First, read the file data
         self.stored_obj_data_raw = std::fs::read(exe)?;

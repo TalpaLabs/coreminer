@@ -241,4 +241,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ## Acknowledgements
 
 - Thanks to the [BugStalker](https://github.com/godzie44/BugStalker) project for inspiration and reference on DWARF and unwinding implementation.
-- Thanks to the [Sy Brand – Writing a Linux Debugger](https://blog.tartanllama.xyz/writing-a-linux-debugger-setup/) for his blog on writing a debugger.
+- Thanks to [Sy Brand – Writing a Linux Debugger](https://blog.tartanllama.xyz/writing-a-linux-debugger-setup/) for his blog on writing a debugger.

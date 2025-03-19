@@ -1883,6 +1883,51 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::ProcessMap(pm))
     }
 
+    /// Gets a [`Breakpoint`] at the specified address
+    ///
+    /// This method retrieves a [`Breakpoint`] object at the given address, if one exists.
+    /// It's primarily used by plugins to determine whether a [`Breakpoint`] exists at a
+    /// specific location.
+    ///
+    /// # Parameters
+    ///
+    /// * `addr` - The memory [`Addr`] to check for a [`Breakpoint`]
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Breakpoint)` - Feedback containing either `Some(Breakpoint)` if a
+    ///   [`Breakpoint`] exists at the address, or [`None`] if there is no [`Breakpoint`]
+    /// * `Err(DebuggerError)` - If there was an error accessing the debuggee
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running (`DebuggerError::NoDebugee`)
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::addr::Addr;
+    /// # use coreminer::feedback::Feedback;
+    /// #
+    /// # let ui = CliUi::build(None).unwrap();
+    /// # let mut debugger = Debugger::build(ui).unwrap();
+    /// # // Set a breakpoint first
+    /// # debugger.set_bp(Addr::from(0x1000usize)).unwrap();
+    ///
+    /// // Check if a breakpoint exists at address 0x1000
+    /// if let Ok(Feedback::Breakpoint(maybe_bp)) = debugger.get_bp(Addr::from(0x1000usize)) {
+    ///     match maybe_bp {
+    ///         Some(bp) => println!("Found breakpoint at address 0x1000"),
+    ///         None => println!("No breakpoint at address 0x1000"),
+    ///     }
+    /// }
+    /// # }}
+    /// ```
     pub fn get_bp(&self, addr: Addr) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
@@ -1891,6 +1936,47 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::Breakpoint(bp.cloned()))
     }
 
+    /// Sets the last signal received from the [`Debuggee`]
+    ///
+    /// This method allows the [`Debugger`] or a plugin to set or modify the `last_signal`
+    /// that will be delivered to the [`Debuggee`].
+    ///
+    /// The set signal will be used the next time the debugger continues execution with
+    /// [`Self::cont()`] or one of the stepping methods.
+    ///
+    /// # Parameters
+    ///
+    /// * `sig` - The signal number to set as the last signal
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the signal was successfully set
+    /// * `Err(DebuggerError)` - If the signal number could not be converted to a valid signal
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The signal number cannot be converted to a valid [`Signal`] type
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use nix::sys::signal::Signal;
+    /// #
+    /// # let ui = CliUi::build(None).unwrap();
+    /// # let mut debugger = Debugger::build(ui).unwrap();
+    ///
+    /// // Set SIGTRAP as the last signal
+    /// debugger.set_last_signal(Signal::SIGTRAP as i32).unwrap();
+    ///
+    /// // When continuing execution, this signal will be passed to the debuggee
+    /// debugger.cont(None).unwrap();
+    /// # }}
+    /// ```
     pub fn set_last_signal(&mut self, sig: i32) -> Result<Feedback> {
         let sig = Signal::try_from(sig)?;
 

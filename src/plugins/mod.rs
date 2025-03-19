@@ -20,7 +20,8 @@
 //! ## Default Plugins
 //!
 //! The module includes several built-in plugins:
-//! - [`HelloWorldPlugin`]: A demo plugin that logs received signals (disabled by default)
+//! - [`SigtrapGuardPlugin`]: A plugin that prevents the detection of the coreminer debugger with
+//!                           a signal handler for SIGTRAP
 //!
 //! ## Usage
 //!
@@ -62,11 +63,11 @@
 use steckrs::{Plugin, PluginManager};
 use tracing::{error, warn};
 
-use self::hello_world::HelloWorldPlugin;
+use self::sigtrap_guard::SigtrapGuardPlugin;
 
 pub mod extension_points;
 
-pub mod hello_world;
+pub mod sigtrap_guard;
 
 /// Creates the default plugin manager with built-in plugins already loaded and activated
 ///
@@ -93,11 +94,8 @@ pub mod hello_world;
 pub fn default_plugin_manager() -> PluginManager {
     let mut manager = PluginManager::new();
 
-    let hw_plugin = HelloWorldPlugin::new();
-    load_plugin(&mut manager, hw_plugin);
-    manager
-        .disable_plugin(HelloWorldPlugin::ID)
-        .expect("could not disable hello world plugin");
+    let st_plugin = SigtrapGuardPlugin::new();
+    load_plugin(&mut manager, st_plugin);
 
     manager
 }
@@ -159,7 +157,7 @@ pub fn load_plugin<P: Plugin>(manager: &mut PluginManager, plugin: P) {
 /// // Inside a method that has access to hooks
 /// for_hooks!(
 ///     for hook[EPreSignalHandler] in debugger {
-///         debugger.hook_feedback_loop(hook, |feedback| {
+///         debugger.hook_feedback_loop(hook.name(), |feedback| {
 ///             // Process the feedback and return a new status
 ///             println!("Received feedback: {}", feedback);
 ///
@@ -182,15 +180,16 @@ pub fn load_plugin<P: Plugin>(manager: &mut PluginManager, plugin: P) {
 macro_rules! for_hooks {
     (for $hook_var:ident[$extension_point:ident] in $debugger:ident $body:block) => {
         let plugins = $debugger.plugins();
-        let plugins_lock = plugins
+        let mut plugins_lock = plugins
             .lock()
             .expect("failed to lock the plugin manager of the coreminer debugger");
-        let hooks: Vec<(_, &steckrs::hook::Hook<$extension_point>)> =
-            plugins_lock.get_enabled_hooks_by_ep::<$extension_point>();
+        let hooks: Vec<(_, &mut steckrs::hook::Hook<$extension_point>)> =
+            plugins_lock.get_enabled_hooks_by_ep_mut::<$extension_point>();
         for (_, $hook_var) in hooks {
             {
                 $body
             }
         }
+        drop(plugins_lock);
     };
 }

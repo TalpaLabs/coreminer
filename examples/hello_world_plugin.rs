@@ -1,19 +1,13 @@
-#![allow(missing_docs)]
-// NOTE: this is an example plugin and currently not used.
-// Perhaps it should be moved to the examples directory, but I have yet to add a consistent way to
-// load "external" plugins to the coreminer
-
 use nix::sys::wait::WaitStatus;
 use steckrs::simple_plugin;
 use tracing::info;
 
-use crate::addr::Addr;
-use crate::errors::Result;
-use crate::feedback::Feedback;
-use crate::feedback::Status;
-use crate::plugins::extension_points::EPreSignalHandler;
-
-use super::extension_points::EPreSignalHandlerF;
+use coreminer::addr::Addr;
+use coreminer::errors::Result;
+use coreminer::feedback::Feedback;
+use coreminer::feedback::Status;
+use coreminer::plugins::extension_points::EPreSignalHandler;
+use coreminer::plugins::extension_points::EPreSignalHandlerF;
 
 simple_plugin!(
     HelloWorldPlugin,
@@ -48,4 +42,8 @@ impl EPreSignalHandlerF for SignalHello {
             }
         }
     }
+}
+
+fn main() {
+    unimplemented!("This is an example implementation of a plugin. It would have to be linked against the coreminer. This is no application of it's own")
 }

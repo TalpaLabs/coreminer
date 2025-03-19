@@ -11,6 +11,7 @@
 //! execution.
 
 use nix::unistd::Pid;
+use serde::Serialize;
 use tracing::{error, trace};
 
 use crate::errors::{DebuggerError, Result};
@@ -64,9 +65,10 @@ pub const WORD_MASK_INV: i64 = MASK_ALL ^ WORD_MASK;
 ///
 /// assert!(!bp.is_enabled());
 /// ```
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, Serialize)]
 pub struct Breakpoint {
     addr: Addr,
+    #[serde(serialize_with = "ser_pid")]
     pid: Pid,
     saved_data: Option<u8>,
 }
@@ -246,6 +248,10 @@ impl Drop for Breakpoint {
             }
         }
     }
+}
+
+fn ser_pid<S: serde::Serializer>(pid: &Pid, s: S) -> std::result::Result<S::Ok, S::Error> {
+    s.serialize_i32(pid.as_raw())
 }
 
 #[cfg(test)]

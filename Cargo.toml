@@ -22,7 +22,7 @@ categories = [
 all-features = true
 
 [dependencies]
-steckrs = { version = "0.3.*", optional = true }
+steckrs = { version = "0.3.3", optional = true }
 clap = { version = "4.5.27", features = ["derive"], optional = true }
 dialoguer = { version = "0.11.0", features = ["history"], optional = true }
 gimli = { version = "0.31.1", default-features = true, features = [
@@ -63,3 +63,8 @@ path = "src/bins/cm.rs"
 name = "cmserve"
 required-features = ["cmserve"]
 path = "src/bins/cmserve.rs"
+
+[[example]]
+name = "hello_world_plugin"
+path = "examples/hello_world_plugin.rs"
+required-features = ["plugins"]

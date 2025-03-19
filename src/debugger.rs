@@ -51,12 +51,9 @@ use crate::{mem_read_word, mem_write_word, unwind, Addr, Register, Word};
 // plugin stuff
 use crate::for_hooks; // does nothing without the feature
 #[cfg(feature = "plugins")]
-use crate::plugins::extension_points::EPreSignalHandler;
+use crate::plugins::extension_points::{EPreSignalHandler, EPreSigtrap};
 #[cfg(feature = "plugins")]
-use steckrs::{
-    hook::{ExtensionPoint, Hook},
-    PluginManager,
-};
+use steckrs::PluginManager;
 
 /// Manages the debugging session and coordinates between the UI and debuggee
 ///
@@ -322,8 +319,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
 
                 for_hooks!(
                     for hook[EPreSignalHandler] in self {
-                        self.hook_feedback_loop(hook, |f| {
-                            hook.inner().pre_handle_signal(f, &siginfo, &sig, &wait_status)
+                        self.hook_feedback_loop(hook.name(), |f| {
+                            hook.inner_mut().pre_handle_signal(f, &siginfo, &sig, &wait_status)
                         })?;
                     }
                 );
@@ -555,6 +552,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             Status::GetStack => self.get_stack(),
             Status::ProcMap => self.get_process_map(),
             Status::Run(exe, args) => self.run(exe, args),
+            Status::GetBreakpoint(addr) => self.get_bp(*addr),
+            Status::SetLastSignal(signum) => self.set_last_signal(*signum),
             Status::PluginContinue => Err(DebuggerError::UiUsedPluginContinue),
         }
     }
@@ -1174,6 +1173,27 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         sig: nix::sys::signal::Signal,
         siginfo: nix::libc::siginfo_t,
     ) -> Result<()> {
+        let mut return_early = false;
+
+        for_hooks!(
+            for hook[EPreSigtrap] in self {
+                trace!("process hook {}", hook.name());
+                self.hook_feedback_loop(hook.name(), |f| {
+                    match hook.inner_mut().pre_handle_sigtrap(f, &siginfo, &sig) {
+                        Ok((status, ret_e)) => {
+                            return_early |= ret_e;
+                            Ok(status)
+                        },
+                        Err(e) => Err(e)
+                    }
+                })?;
+            }
+        );
+
+        if return_early {
+            return Ok(());
+        }
+
         info!("debugee received {}: {}", sig.as_str(), siginfo.si_code);
 
         match siginfo.si_code {
@@ -1863,6 +1883,109 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::ProcessMap(pm))
     }
 
+    /// Gets a [`Breakpoint`] at the specified address
+    ///
+    /// This method retrieves a [`Breakpoint`] object at the given address, if one exists.
+    /// It's primarily used by plugins to determine whether a [`Breakpoint`] exists at a
+    /// specific location.
+    ///
+    /// # Parameters
+    ///
+    /// * `addr` - The memory [`Addr`] to check for a [`Breakpoint`]
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Breakpoint)` - Feedback containing either `Some(Breakpoint)` if a
+    ///   [`Breakpoint`] exists at the address, or [`None`] if there is no [`Breakpoint`]
+    /// * `Err(DebuggerError)` - If there was an error accessing the debuggee
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The debuggee is not running (`DebuggerError::NoDebugee`)
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use coreminer::addr::Addr;
+    /// # use coreminer::feedback::Feedback;
+    /// #
+    /// # let ui = CliUi::build(None).unwrap();
+    /// # let mut debugger = Debugger::build(ui).unwrap();
+    /// # // Set a breakpoint first
+    /// # debugger.set_bp(Addr::from(0x1000usize)).unwrap();
+    ///
+    /// // Check if a breakpoint exists at address 0x1000
+    /// if let Ok(Feedback::Breakpoint(maybe_bp)) = debugger.get_bp(Addr::from(0x1000usize)) {
+    ///     match maybe_bp {
+    ///         Some(bp) => println!("Found breakpoint at address 0x1000"),
+    ///         None => println!("No breakpoint at address 0x1000"),
+    ///     }
+    /// }
+    /// # }}
+    /// ```
+    pub fn get_bp(&self, addr: Addr) -> Result<Feedback> {
+        let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
+
+        let bp = dbge.breakpoints.get(&addr);
+
+        Ok(Feedback::Breakpoint(bp.cloned()))
+    }
+
+    /// Sets the last signal received from the [`Debuggee`]
+    ///
+    /// This method allows the [`Debugger`] or a plugin to set or modify the `last_signal`
+    /// that will be delivered to the [`Debuggee`].
+    ///
+    /// The set signal will be used the next time the debugger continues execution with
+    /// [`Self::cont()`] or one of the stepping methods.
+    ///
+    /// # Parameters
+    ///
+    /// * `sig` - The signal number to set as the last signal
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the signal was successfully set
+    /// * `Err(DebuggerError)` - If the signal number could not be converted to a valid signal
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The signal number cannot be converted to a valid [`Signal`] type
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
+    /// # use coreminer::debugger::Debugger;
+    /// # use coreminer::ui::cli::CliUi;
+    /// # use nix::sys::signal::Signal;
+    /// #
+    /// # let ui = CliUi::build(None).unwrap();
+    /// # let mut debugger = Debugger::build(ui).unwrap();
+    ///
+    /// // Set SIGTRAP as the last signal
+    /// debugger.set_last_signal(Signal::SIGTRAP as i32).unwrap();
+    ///
+    /// // When continuing execution, this signal will be passed to the debuggee
+    /// debugger.cont(None).unwrap();
+    /// # }}
+    /// ```
+    pub fn set_last_signal(&mut self, sig: i32) -> Result<Feedback> {
+        let sig = Signal::try_from(sig)?;
+
+        info!("set last signal to {sig}");
+        self.last_signal = Some(sig);
+
+        Ok(Feedback::Ok)
+    }
+
     /// Runs a program for debugging
     ///
     /// This function loads an executable, parses its debug information, and
@@ -1993,7 +2116,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// // Inside a method that has access to hooks
     /// for_hooks!(
     ///     for hook[EPreSignalHandler] in debugger {
-    ///         debugger.hook_feedback_loop(hook, |feedback| {
+    ///         debugger.hook_feedback_loop(hook.name(), |feedback| {
     ///             // Process the feedback and return a new status
     ///             println!("Received feedback: {}", feedback);
     ///
@@ -2012,22 +2135,23 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// In this example, the hook processes feedback and decides whether to continue or
     /// request more information from the debugger before completing.
     #[cfg(feature = "plugins")]
-    pub fn hook_feedback_loop<F, E: ExtensionPoint>(
-        &mut self,
-        hook: &Hook<E>,
-        mut f: F,
-    ) -> Result<()>
+    pub fn hook_feedback_loop<F>(&mut self, hook_name: &str, mut f: F) -> Result<()>
     where
         F: FnMut(&Feedback) -> Result<Status>,
     {
         let mut feedback = Feedback::Ok;
         let mut status;
+        let mut guard = 0;
         loop {
+            if guard > 10 {
+                return Err(DebuggerError::TooManyPluginIterations);
+            }
+            guard += 1;
             status = match f(&feedback) {
                 Ok(s) => s,
                 Err(e) => {
-                    error!("Error in Hook '{}': {e}", hook.name());
-                    continue;
+                    error!("Error in Hook '{}': {e}", hook_name);
+                    break;
                 }
             };
             if status == Status::PluginContinue {

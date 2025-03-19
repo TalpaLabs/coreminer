@@ -23,6 +23,7 @@ use std::path::PathBuf;
 use nix::libc::user_regs_struct;
 use serde::{Deserialize, Serialize};
 
+use crate::breakpoint::Breakpoint;
 use crate::dbginfo::OwnedSymbol;
 use crate::disassemble::Disassembly;
 use crate::errors::DebuggerError;
@@ -57,6 +58,7 @@ use crate::{Addr, Register, Word};
 /// // Command to run a executable in the debugger
 /// let status = Status::Run(Path::new("/bin/ls").into(), vec![]);
 /// ```
+#[non_exhaustive]
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub enum Status {
@@ -93,6 +95,9 @@ pub enum Status {
     /// Set a breakpoint at the specified address
     SetBreakpoint(Addr),
 
+    /// Get a breakpoint at the specified address
+    GetBreakpoint(Addr),
+
     /// Remove a breakpoint at the specified address
     DelBreakpoint(Addr),
 
@@ -125,6 +130,9 @@ pub enum Status {
 
     /// Run a new program
     Run(PathBuf, Vec<CString>),
+
+    /// Set the last signal with the number of the signal
+    SetLastSignal(i32),
 
     /// To be used by plugin hooks if the hook is done
     #[serde(skip)]
@@ -164,6 +172,7 @@ pub enum Status {
 ///     }
 /// }
 /// ```
+#[non_exhaustive]
 #[derive(Debug, Serialize)]
 pub enum Feedback {
     /// Memory word value
@@ -202,6 +211,9 @@ pub enum Feedback {
     /// Debuggee process exit
     Exit(i32),
 
+    /// Returns a requested [`Breakpoint`]
+    Breakpoint(Option<Breakpoint>),
+
     /// Internal feedback for controls
     #[serde(skip)]
     #[allow(private_interfaces)] // this specific part isnt supposed to be used by anyone else
@@ -229,6 +241,7 @@ impl Display for Feedback {
             Feedback::Stack(t) => write!(f, "Stack:\n{t}")?,
             Feedback::ProcessMap(pm) => write!(f, "Process Map:\n{pm:#x?}")?,
             Feedback::Exit(code) => write!(f, "Debugee exited with code {code}")?,
+            Feedback::Breakpoint(bp) => write!(f, "Breakpoint: {bp:?}")?,
             Feedback::Internal(_) => write!(f, "Internal Feedback")?,
         }
 

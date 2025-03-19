@@ -63,3 +63,8 @@ path = "src/bins/cm.rs"
 name = "cmserve"
 required-features = ["cmserve"]
 path = "src/bins/cmserve.rs"
+
+[[example]]
+name = "hello_world_plugin"
+path = "examples/hello_world_plugin.rs"
+required-features = ["plugins"]

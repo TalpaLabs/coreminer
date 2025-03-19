@@ -189,7 +189,7 @@ impl CliUi {
             return None;
         }
 
-        let mut raw = self.buf_preparsed[index].clone();
+        let raw = self.buf_preparsed[index].clone();
         trace!("raw bool: {raw}");
 
         match raw.to_lowercase().as_str() {

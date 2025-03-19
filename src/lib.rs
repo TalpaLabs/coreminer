@@ -375,6 +375,7 @@ mod test {
 
 #[cfg(not(feature = "plugins"))]
 #[macro_export]
+/// Placeholder macro in case coreminer is compiled without plugin support
 macro_rules! for_hooks {
     ($($discard:tt)*) => {};
 }

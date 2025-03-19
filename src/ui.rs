@@ -13,7 +13,6 @@
 
 use crate::errors::Result;
 use crate::feedback::{Feedback, Status};
-use crate::Register;
 
 #[cfg(feature = "cli")]
 pub mod cli;

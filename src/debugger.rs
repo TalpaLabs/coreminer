@@ -27,6 +27,7 @@ use std::collections::HashMap;
 use std::ffi::CString;
 use std::fmt::Display;
 use std::path::Path;
+#[cfg(feature = "plugins")]
 use std::sync::{Arc, Mutex};
 
 use iced_x86::FormatterTextKind;
@@ -1180,6 +1181,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         sig: nix::sys::signal::Signal,
         siginfo: nix::libc::siginfo_t,
     ) -> Result<()> {
+        #[allow(unused_mut)] // used for plugins
         let mut return_early = false;
 
         for_hooks!(
@@ -2296,6 +2298,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::PluginStatus(status))
     }
 
+    #[cfg(feature = "plugins")]
     pub fn list_plugins(&self) -> Result<Feedback> {
         Ok(Feedback::PluginList(
             self.plugins

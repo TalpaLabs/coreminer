@@ -22,10 +22,10 @@ use std::str::FromStr;
 use dialoguer::BasicHistory;
 use tracing::{error, info, trace, warn};
 
-use super::{DebuggerUI, Register, Status};
+use super::{DebuggerUI, Status};
 use crate::errors::Result;
 use crate::feedback::Feedback;
-use crate::{Addr, Word};
+use crate::{Addr, Register, Word};
 
 /// Command-line interface for the debugger
 ///

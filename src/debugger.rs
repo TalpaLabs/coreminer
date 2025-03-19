@@ -2298,6 +2298,49 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         Ok(Feedback::PluginStatus(status))
     }
 
+    /// Lists all loaded plugins with their enabled status
+    ///
+    /// This method provides a list of all plugins currently loaded in the plugin manager,
+    /// along with their enabled status. This is useful for UI components that need to
+    /// display and manage plugins.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::PluginList)` - A list of tuples containing plugin IDs and their enabled status
+    /// * `Err(DebuggerError)` - If there was an error accessing the plugin manager
+    ///
+    /// # Errors
+    ///
+    /// This method cannot fail by design but returns a `Result` for consistency with other methods.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if it cannot acquire a lock on the plugin manager.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
+    /// use coreminer::debugger::Debugger;
+    /// use coreminer::ui::cli::CliUi;
+    /// use coreminer::feedback::Feedback;
+    ///
+    /// # fn example() -> coreminer::errors::Result<()> {
+    /// let ui = CliUi::build(None)?;
+    /// let debugger = Debugger::build(ui)?;
+    ///
+    /// // Get a list of all loaded plugins
+    /// if let Ok(Feedback::PluginList(plugins)) = debugger.list_plugins() {
+    ///     println!("Loaded plugins:");
+    ///     for (plugin_id, is_enabled) in plugins {
+    ///         println!("  {} ({})", plugin_id, if is_enabled { "enabled" } else { "disabled" });
+    ///     }
+    /// }
+    /// # Ok(())
+    /// # }
+    /// # }}
+    /// ```
     #[cfg(feature = "plugins")]
     pub fn list_plugins(&self) -> Result<Feedback> {
         Ok(Feedback::PluginList(

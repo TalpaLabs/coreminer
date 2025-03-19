@@ -21,7 +21,7 @@ use std::fmt::Display;
 use std::path::PathBuf;
 
 use nix::libc::user_regs_struct;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg(feature = "plugins")]
 use steckrs::PluginIDOwned;
 
@@ -131,7 +131,12 @@ pub enum Status {
     ProcMap,
 
     /// Run a new program
-    Run(PathBuf, Vec<CString>),
+    Run(
+        PathBuf,
+        #[serde(serialize_with = "serialize_cstring_vec")]
+        #[serde(deserialize_with = "deserialize_cstring_vec")]
+        Vec<CString>,
+    ),
 
     /// Set the last signal with the number of the signal
     SetLastSignal(i32),
@@ -363,4 +368,26 @@ impl From<user_regs_struct> for UserRegs {
             gs: regs.gs,
         }
     }
+}
+
+fn serialize_cstring_vec<S>(items: &[CString], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let strings: Vec<&str> = items
+        .iter()
+        .map(|c| c.to_str().map_err(serde::ser::Error::custom))
+        .collect::<Result<_, _>>()?;
+    strings.serialize(serializer)
+}
+
+fn deserialize_cstring_vec<'de, D>(deserializer: D) -> Result<Vec<CString>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let strings: Vec<String> = Vec::deserialize(deserializer)?;
+    strings
+        .into_iter()
+        .map(|s| CString::new(s).map_err(serde::de::Error::custom))
+        .collect()
 }

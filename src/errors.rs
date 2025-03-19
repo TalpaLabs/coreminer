@@ -160,10 +160,13 @@ pub enum DebuggerError {
     )]
     AlreadyDisassembled(Addr),
     #[error("The UI used {:?}", crate::feedback::Status::PluginContinue)]
+    #[cfg(feature = "plugins")]
     UiUsedPluginContinue,
     #[error("A plugin had too many iterations (this is an error in the plugin)")]
+    #[cfg(feature = "plugins")]
     TooManyPluginIterations,
     #[error("Error while controlling a pluign: {0}")]
+    #[cfg(feature = "plugins")]
     PluginError(#[from] steckrs::error::PluginError),
 }
 

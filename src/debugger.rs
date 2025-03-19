@@ -53,7 +53,7 @@ use crate::for_hooks; // does nothing without the feature
 #[cfg(feature = "plugins")]
 use crate::plugins::extension_points::{EPreSignalHandler, EPreSigtrap};
 #[cfg(feature = "plugins")]
-use steckrs::PluginManager;
+use steckrs::{PluginIDOwned, PluginManager};
 
 /// Manages the debugging session and coordinates between the UI and debuggee
 ///
@@ -554,7 +554,12 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             Status::Run(exe, args) => self.run(exe, args),
             Status::GetBreakpoint(addr) => self.get_bp(*addr),
             Status::SetLastSignal(signum) => self.set_last_signal(*signum),
+            #[cfg(feature = "plugins")]
             Status::PluginContinue => Err(DebuggerError::UiUsedPluginContinue),
+            #[cfg(feature = "plugins")]
+            Status::PluginSetEnable(id, status) => self.plugin_set_enable(id, *status),
+            #[cfg(feature = "plugins")]
+            Status::PluginGetStatus(id) => self.plugin_get_status(id),
         }
     }
 
@@ -2169,5 +2174,27 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     #[cfg(feature = "plugins")]
     pub fn plugins(&self) -> Arc<Mutex<PluginManager>> {
         self.plugins.clone()
+    }
+
+    #[cfg(feature = "plugins")]
+    pub fn plugin_set_enable(&mut self, id: &PluginIDOwned, status: bool) -> Result<Feedback> {
+        let mut plugins = self.plugins.lock().expect("could not lock plugin_manager");
+        if status {
+            plugins.enable_plugin(id.clone().into())?;
+        } else {
+            plugins.disable_plugin(id.clone().into())?;
+        }
+        Ok(Feedback::Ok)
+    }
+
+    #[cfg(feature = "plugins")]
+    pub fn plugin_get_status(&self, id: &PluginIDOwned) -> Result<Feedback> {
+        let status: Option<bool> = self
+            .plugins
+            .lock()
+            .expect("could not lock plugin_manager")
+            .plugin_is_enabled(id.clone().into());
+
+        Ok(Feedback::PluginStatus(status))
     }
 }

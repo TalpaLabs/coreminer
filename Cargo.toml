@@ -22,7 +22,7 @@ categories = [
 all-features = true
 
 [dependencies]
-steckrs = { version = "0.3.3", optional = true }
+steckrs = { version = "0.3.4", optional = true, features = ["serde"] }
 clap = { version = "4.5.27", features = ["derive"], optional = true }
 dialoguer = { version = "0.11.0", features = ["history"], optional = true }
 gimli = { version = "0.31.1", default-features = true, features = [

@@ -163,6 +163,8 @@ pub enum DebuggerError {
     UiUsedPluginContinue,
     #[error("A plugin had too many iterations (this is an error in the plugin)")]
     TooManyPluginIterations,
+    #[error("Error while controlling a pluign: {0}")]
+    PluginError(#[from] steckrs::error::PluginError),
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref)] // serde passes by ref

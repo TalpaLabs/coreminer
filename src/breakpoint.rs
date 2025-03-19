@@ -252,7 +252,7 @@ impl Drop for Breakpoint {
 
 // serde always passes a reference. If we pass by value, the serializing
 // will not compile
-#[allow(clippy::pedantic)]
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn ser_pid<S: serde::Serializer>(pid: &Pid, s: S) -> std::result::Result<S::Ok, S::Error> {
     s.serialize_i32(pid.as_raw())
 }

@@ -479,6 +479,13 @@ impl DebuggerUI for CliUi {
                 } else {
                     return Ok(Status::PluginGetStatus(plugin_id.into()));
                 }
+            } else if string_matches(cmd, &["plugins"]) {
+                #[cfg(not(feature = "plugins"))]
+                {
+                    error!("this version of the coreminer has not been built with plugin support");
+                    continue;
+                }
+                return Ok(Status::PluginGetList);
             } else if string_matches(cmd, &["help", "h", "?"]) {
                 show_help();
                 continue;

@@ -560,6 +560,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             Status::PluginSetEnable(id, status) => self.plugin_set_enable(id, *status),
             #[cfg(feature = "plugins")]
             Status::PluginGetStatus(id) => self.plugin_get_status(id),
+            #[cfg(feature = "plugins")]
+            Status::PluginGetList => self.list_plugins(),
         }
     }
 
@@ -2292,5 +2294,17 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             .plugin_is_enabled(id.clone().into());
 
         Ok(Feedback::PluginStatus(status))
+    }
+
+    pub fn list_plugins(&self) -> Result<Feedback> {
+        Ok(Feedback::PluginList(
+            self.plugins
+                .lock()
+                .expect("could not lock plugin_manager")
+                .plugins()
+                .iter()
+                .map(|plugin| (plugin.id().into(), plugin.is_enabled()))
+                .collect(),
+        ))
     }
 }

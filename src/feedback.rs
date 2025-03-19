@@ -148,6 +148,10 @@ pub enum Status {
     #[cfg(feature = "plugins")]
     /// Get if a status is enabled or disabled (or does not exist)
     PluginGetStatus(PluginIDOwned),
+
+    #[cfg(feature = "plugins")]
+    /// Get a list of all loaded plugins
+    PluginGetList,
 }
 
 /// Represents the result of a debugging operation
@@ -233,6 +237,10 @@ pub enum Feedback {
     /// * `None` if it does not exist
     PluginStatus(Option<bool>),
 
+    #[cfg(feature = "plugins")]
+    /// List of loaded plugins
+    PluginList(Vec<(PluginIDOwned, bool)>),
+
     /// Internal feedback for controls
     #[serde(skip)]
     #[allow(private_interfaces)] // this specific part isnt supposed to be used by anyone else
@@ -265,6 +273,13 @@ impl Display for Feedback {
             Feedback::Internal(_) => write!(f, "Internal Feedback")?,
             #[cfg(feature = "plugins")]
             Feedback::PluginStatus(ps) => write!(f, "Plugin Status: {ps:?}")?,
+            #[cfg(feature = "plugins")]
+            Feedback::PluginList(list) => {
+                write!(f, "Plugin List:")?;
+                for (pl, s) in list {
+                    write!(f, "\n  {pl:<20}: {s}")?;
+                }
+            }
         }
 
         Ok(())

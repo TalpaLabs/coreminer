@@ -11,6 +11,7 @@ use clap::Parser;
 use coreminer::feedback::Status;
 use coreminer::Word;
 use serde::de::Error;
+use steckrs::PluginIDOwned;
 use tracing::trace;
 
 #[derive(Parser, Debug)]
@@ -78,6 +79,10 @@ fn example_statuses() {
         Status::DebuggerQuit,
         Status::Continue,
         Status::ProcMap,
+        #[cfg(feature = "plugins")]
+        Status::PluginSetEnable(PluginIDOwned::from("foobar"), true),
+        #[cfg(feature = "plugins")]
+        Status::PluginGetStatus(PluginIDOwned::from("foobar")),
         Status::SetBreakpoint(Addr::from(21958295usize)),
         Status::SetRegister(coreminer::Register::r9, 133719),
         Status::DumpRegisters,
@@ -112,6 +117,8 @@ fn example_feedbacks() {
         Feedback::Error(DebuggerError::BreakpointIsAlreadyEnabled),
         Feedback::Error(DebuggerError::UnimplementedRegister(1337)),
         Feedback::Error(DebuggerError::Json(serde_json::Error::custom("test err"))),
+        #[cfg(feature = "plugins")]
+        Feedback::PluginStatus(Some(false)),
     ];
 
     for f in feedbacks {

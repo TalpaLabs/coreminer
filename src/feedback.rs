@@ -22,6 +22,8 @@ use std::path::PathBuf;
 
 use nix::libc::user_regs_struct;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "plugins")]
+use steckrs::PluginIDOwned;
 
 use crate::breakpoint::Breakpoint;
 use crate::dbginfo::OwnedSymbol;
@@ -136,7 +138,20 @@ pub enum Status {
 
     /// To be used by plugin hooks if the hook is done
     #[serde(skip)]
+    #[cfg(feature = "plugins")]
     PluginContinue,
+
+    #[cfg(feature = "plugins")]
+    /// Enable or disable a plugin
+    PluginSetEnable(PluginIDOwned, bool),
+
+    #[cfg(feature = "plugins")]
+    /// Get if a status is enabled or disabled (or does not exist)
+    PluginGetStatus(PluginIDOwned),
+
+    #[cfg(feature = "plugins")]
+    /// Get a list of all loaded plugins
+    PluginGetList,
 }
 
 /// Represents the result of a debugging operation
@@ -214,6 +229,18 @@ pub enum Feedback {
     /// Returns a requested [`Breakpoint`]
     Breakpoint(Option<Breakpoint>),
 
+    #[cfg(feature = "plugins")]
+    /// Information on if a plugin is enabled
+    ///
+    /// * `Some(true)` if it is enabled
+    /// * `Some(false)` if it is disabled
+    /// * `None` if it does not exist
+    PluginStatus(Option<bool>),
+
+    #[cfg(feature = "plugins")]
+    /// List of loaded plugins
+    PluginList(Vec<(PluginIDOwned, bool)>),
+
     /// Internal feedback for controls
     #[serde(skip)]
     #[allow(private_interfaces)] // this specific part isnt supposed to be used by anyone else
@@ -221,6 +248,7 @@ pub enum Feedback {
 }
 
 #[derive(Debug)]
+#[non_exhaustive]
 pub(crate) enum InternalFeedback {
     /// Internal variant signaling to stop the processing loop
     Quit,
@@ -243,6 +271,15 @@ impl Display for Feedback {
             Feedback::Exit(code) => write!(f, "Debugee exited with code {code}")?,
             Feedback::Breakpoint(bp) => write!(f, "Breakpoint: {bp:?}")?,
             Feedback::Internal(_) => write!(f, "Internal Feedback")?,
+            #[cfg(feature = "plugins")]
+            Feedback::PluginStatus(ps) => write!(f, "Plugin Status: {ps:?}")?,
+            #[cfg(feature = "plugins")]
+            Feedback::PluginList(list) => {
+                write!(f, "Plugin List:")?;
+                for (pl, s) in list {
+                    write!(f, "\n  {pl:<20}: {s}")?;
+                }
+            }
         }
 
         Ok(())

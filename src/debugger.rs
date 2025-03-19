@@ -27,6 +27,7 @@ use std::collections::HashMap;
 use std::ffi::CString;
 use std::fmt::Display;
 use std::path::Path;
+#[cfg(feature = "plugins")]
 use std::sync::{Arc, Mutex};
 
 use iced_x86::FormatterTextKind;
@@ -53,7 +54,7 @@ use crate::for_hooks; // does nothing without the feature
 #[cfg(feature = "plugins")]
 use crate::plugins::extension_points::{EPreSignalHandler, EPreSigtrap};
 #[cfg(feature = "plugins")]
-use steckrs::PluginManager;
+use steckrs::{PluginIDOwned, PluginManager};
 
 /// Manages the debugging session and coordinates between the UI and debuggee
 ///
@@ -554,7 +555,14 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             Status::Run(exe, args) => self.run(exe, args),
             Status::GetBreakpoint(addr) => self.get_bp(*addr),
             Status::SetLastSignal(signum) => self.set_last_signal(*signum),
+            #[cfg(feature = "plugins")]
             Status::PluginContinue => Err(DebuggerError::UiUsedPluginContinue),
+            #[cfg(feature = "plugins")]
+            Status::PluginSetEnable(id, status) => self.plugin_set_enable(id, *status),
+            #[cfg(feature = "plugins")]
+            Status::PluginGetStatus(id) => self.plugin_get_status(id),
+            #[cfg(feature = "plugins")]
+            Status::PluginGetList => self.list_plugins(),
         }
     }
 
@@ -1173,6 +1181,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         sig: nix::sys::signal::Signal,
         siginfo: nix::libc::siginfo_t,
     ) -> Result<()> {
+        #[allow(unused_mut)] // used for plugins
         let mut return_early = false;
 
         for_hooks!(
@@ -2169,5 +2178,179 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     #[cfg(feature = "plugins")]
     pub fn plugins(&self) -> Arc<Mutex<PluginManager>> {
         self.plugins.clone()
+    }
+
+    /// Enables or disables a plugin by its ID
+    ///
+    /// This method modifies the enabled status of a plugin in the plugin manager.
+    /// It acquires a lock on the plugin manager, then calls the appropriate method
+    /// based on the requested status.
+    ///
+    /// # Parameters
+    ///
+    /// * `id` - The unique identifier of the plugin to modify
+    /// * `status` - `true` to enable the plugin, `false` to disable it
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::Ok)` - If the operation was successful
+    /// * `Err(DebuggerError)` - If there was an error enabling or disabling the plugin
+    ///
+    /// # Errors
+    ///
+    /// This function can fail if:
+    /// - The plugin with the specified ID is not found
+    /// - There was an error in the plugin manager operation
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if it cannot acquire a lock on the plugin manager.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use coreminer::debugger::Debugger;
+    /// use coreminer::ui::cli::CliUi;
+    /// use steckrs::PluginIDOwned;
+    ///
+    /// # fn example() -> coreminer::errors::Result<()> {
+    /// let ui = CliUi::build(None)?;
+    /// let mut debugger = Debugger::build(ui)?;
+    ///
+    /// // Enable a plugin
+    /// let plugin_id = PluginIDOwned::from("hello_world");
+    /// debugger.plugin_set_enable(&plugin_id, true)?;
+    ///
+    /// // Later, disable the plugin
+    /// debugger.plugin_set_enable(&plugin_id, false)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[cfg(feature = "plugins")]
+    pub fn plugin_set_enable(&mut self, id: &PluginIDOwned, status: bool) -> Result<Feedback> {
+        let mut plugins = self.plugins.lock().expect("could not lock plugin_manager");
+        if status {
+            plugins.enable_plugin(id.clone().into())?;
+            info!("enabled plugin {id}");
+        } else {
+            plugins.disable_plugin(id.clone().into())?;
+            info!("disabled plugin {id}");
+        }
+        Ok(Feedback::Ok)
+    }
+
+    /// Gets the enabled status of a plugin by its ID
+    ///
+    /// This method retrieves the current enabled status of a plugin from the plugin manager.
+    /// It acquires a lock on the plugin manager, then checks if the plugin is enabled.
+    ///
+    /// # Parameters
+    ///
+    /// * `id` - The unique identifier of the plugin to check
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::PluginStatus(Some(bool)))` - The plugin's enabled status (`true` if enabled, `false` if disabled)
+    /// * `Ok(Feedback::PluginStatus(None))` - If the plugin was not found
+    /// * `Err(DebuggerError)` - If there was an error retrieving the plugin status
+    ///
+    /// # Errors
+    ///
+    /// This method cannot fail.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if it cannot acquire a lock on the plugin manager.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
+    /// use coreminer::debugger::Debugger;
+    /// use coreminer::ui::cli::CliUi;
+    /// use coreminer::feedback::Feedback;
+    /// use steckrs::PluginIDOwned;
+    ///
+    /// # fn example() -> coreminer::errors::Result<()> {
+    /// let ui = CliUi::build(None)?;
+    /// let debugger = Debugger::build(ui)?;
+    ///
+    /// // Check a plugin's status
+    /// let plugin_id = PluginIDOwned::from("hello_world");
+    /// if let Ok(Feedback::PluginStatus(Some(is_enabled))) = debugger.plugin_get_status(&plugin_id) {
+    ///     println!("Plugin is {}", if is_enabled { "enabled" } else { "disabled" });
+    /// } else {
+    ///     println!("Plugin not found");
+    /// }
+    /// # Ok(())
+    /// # }
+    /// # }}
+    /// ```
+    #[cfg(feature = "plugins")]
+    pub fn plugin_get_status(&self, id: &PluginIDOwned) -> Result<Feedback> {
+        let status: Option<bool> = self
+            .plugins
+            .lock()
+            .expect("could not lock plugin_manager")
+            .plugin_is_enabled(id.clone().into());
+
+        Ok(Feedback::PluginStatus(status))
+    }
+
+    /// Lists all loaded plugins with their enabled status
+    ///
+    /// This method provides a list of all plugins currently loaded in the plugin manager,
+    /// along with their enabled status. This is useful for UI components that need to
+    /// display and manage plugins.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Feedback::PluginList)` - A list of tuples containing plugin IDs and their enabled status
+    /// * `Err(DebuggerError)` - If there was an error accessing the plugin manager
+    ///
+    /// # Errors
+    ///
+    /// This method cannot fail by design but returns a `Result` for consistency with other methods.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if it cannot acquire a lock on the plugin manager.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// #[cfg(feature = "cli")]
+    /// # mod featguard { fn _do_thing() {
+    /// use coreminer::debugger::Debugger;
+    /// use coreminer::ui::cli::CliUi;
+    /// use coreminer::feedback::Feedback;
+    ///
+    /// # fn example() -> coreminer::errors::Result<()> {
+    /// let ui = CliUi::build(None)?;
+    /// let debugger = Debugger::build(ui)?;
+    ///
+    /// // Get a list of all loaded plugins
+    /// if let Ok(Feedback::PluginList(plugins)) = debugger.list_plugins() {
+    ///     println!("Loaded plugins:");
+    ///     for (plugin_id, is_enabled) in plugins {
+    ///         println!("  {} ({})", plugin_id, if is_enabled { "enabled" } else { "disabled" });
+    ///     }
+    /// }
+    /// # Ok(())
+    /// # }
+    /// # }}
+    /// ```
+    #[cfg(feature = "plugins")]
+    pub fn list_plugins(&self) -> Result<Feedback> {
+        Ok(Feedback::PluginList(
+            self.plugins
+                .lock()
+                .expect("could not lock plugin_manager")
+                .plugins()
+                .iter()
+                .map(|plugin| (plugin.id().into(), plugin.is_enabled()))
+                .collect(),
+        ))
     }
 }

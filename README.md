@@ -46,12 +46,15 @@ A powerful debugger written in Rust that provides low-level debugging capabiliti
 - **Stack Unwinding**: Generate and analyze stack backtraces
 - **Disassembly**: View disassembled code at specific addresses
 - **Process Inspection**: View process maps and executable layouts
+- **Plugin System**: Extend debugger capabilities with custom plugins (v0.3.0+)
+- **Plugin Management**: Enable/disable plugins at runtime (v0.4.0+)
+- **Sigtrap Guard Plugin**: Protrect from detection through self registering a handler on SIGTRAP
 
 ## Installation
 
 ### Additional system dependencies
 
-Coreminer depends on `libunwind-dev`. On Debian, it can be installed like
+To compile, coreminer depends on `libunwind-dev`. On Debian, it can be installed like
 this. Other distributions provide similar packages.
 
 ```bash
@@ -135,57 +138,43 @@ sym main
 sym i
 ```
 
-### Advanced Stepping
+A list of all commands can be gotten with `help`:
 
 ```
-# Step into a function call
-si
+Coreminer Debugger Help:
 
-# Step over a function call
-su
-sov
+  run PATH:str [ARGS:str ...]             - Run program at PATH with optional arguments
+  c, cont                                 - Continue execution
+  s, step                                 - Step one instruction
+  si                                      - Step into function call
+  su, sov                                 - Step over function call
+  so                                      - Step out of current function
+  bp, break ADDR:num                      - Set breakpoint at address (hex)
+  dbp, delbreak ADDR:num                  - Delete breakpoint at address (hex)
+  d, dis ADDR:num LEN:num [--literal]     - Disassemble LEN bytes at ADDR
+  bt                                      - Show backtrace
+  stack                                   - Show stack
+  info                                    - Show debugger info
+  pm                                      - Show process memory map
+  regs get                                - Show register values
+  regs set REG:str VAL:num                - Set register REG to value VAL (hex)
+  rmem ADDR:num                           - Read memory at address (hex)
+  wmem ADDR:num VAL:num                   - Write value to memory at address (hex)
+  sym, gsym NAME:str                      - Look up symbol by name
+  var NAME:str                            - Read variable value
+  vars NAME:str VAL:num                   - Write value to variable
+  set stepper N                           - Set stepper to auto-step N times
+  q, quit, exit                           - Exit the debugger
+  plugin ID:str [STATUS:bool]             - Show the status of a plugin or enable/disable it
+  plugins                                 - Get a list of all loaded plugins
+  help, h, ?                              - Show this help
 
-# Step out of the current function
-so
-```
+Addresses and values should be in hexadecimal (with or without 0x prefix)
 
-### Memory and Register Manipulation
-
-```
-# Write a value to memory
-wmem 0x7fffffffe000 0x42
-
-# Set register value
-regs set rip 19
-```
-
-### Working with Variables
-
-```
-# View a variable by name
-var counter
-
-# Write to a variable
-vars counter 42
-```
-
-### Automatic Stepping
-
-```
-# Set up automatic stepping for N steps
-set stepper 10
-```
-
-### Help and Exit
-
-```
-# Show available commands
-help
-
-# Exit the debugger
-q
-quit
-exit
+Input Types:
+  FOO:num is a positive whole number in hexadecimal (optional 0x prefix)
+  FOO:str is a string
+  FOO:bool either of 'true', 'false', '1', or '0'
 ```
 
 ## JSON Interface
@@ -196,7 +185,7 @@ scripted. This enables projects such as [hardhat](https://github.com/debugger-bs
 to build a better user interface for Coreminer.
 
 To see some example inputs (statuses) and outputs (feedbacks), you can use
-`cmserve --example-statuses --example-feedbacks `.
+`cmserve --example-statuses --example-feedbacks`.
 
 ## Use Cases
 
@@ -213,6 +202,7 @@ Coreminer is built around several key components:
 - **DWARF Debug Info**: For symbol resolution and variable information
 - **Stack Unwinding**: Using libunwind
 - **Disassembly**: Powered by iced-x86
+- **Plugin System**: Extensibility via [steckrs](https://github.com/PlexSheep/steckrs)
 
 ## Examples
 
@@ -221,6 +211,8 @@ as debuggees. You can try coreminer on them and see what happens.
 
 They can be compiled in debug or release mode with [`build-dummy.sh`](./build-dummy.sh) and
 [`build-release.sh`](./build-release.sh).
+
+The [examples](./examples/) directory also contains an example plugin.
 
 ## Contributing
 
@@ -241,4 +233,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 ## Acknowledgements
 
 - Thanks to the [BugStalker](https://github.com/godzie44/BugStalker) project for inspiration and reference on DWARF and unwinding implementation.
-- Thanks to [Sy Brand – Writing a Linux Debugger](https://blog.tartanllama.xyz/writing-a-linux-debugger-setup/) for his blog on writing a debugger.
+- Thanks to the [Sy Brand – Writing a Linux Debugger](https://blog.tartanllama.xyz/writing-a-linux-debugger-setup/) for his blog on writing a debugger.

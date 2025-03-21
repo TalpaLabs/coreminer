@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.4.0](https://github.com/debugger-bs/coreminer/compare/v0.3.0...v0.4.0)
+
+### ⛰️ Features
+
+- *(baseui)* Enable or disable plugins - ([8c98db2](https://github.com/debugger-bs/coreminer/commit/8c98db2191468081f6915e087ae679081ce94a06))
+- *(cmserve)* Add example feedback and statuses for plugins - ([df8216d](https://github.com/debugger-bs/coreminer/commit/df8216d717845366394eaf358dca0466c8088349))
+- *(plugin)* Add sigtrap-guard plugin which detects self inserted int3 #44 - ([51a1734](https://github.com/debugger-bs/coreminer/commit/51a17341ad3df3658776a9be1a1821d5df7f8e79))
+- Add plugin list - ([ecaecc0](https://github.com/debugger-bs/coreminer/commit/ecaecc00697217c67beb86bf43f92e7a3474d396))
+- Plugin id are serialized in a transparent way - ([70e484b](https://github.com/debugger-bs/coreminer/commit/70e484bde02d9983073cdec12ed803cc00ddf8ea))
+- Enable or disable plugins in coreminer - ([7aef39d](https://github.com/debugger-bs/coreminer/commit/7aef39d1046aa48f0d1db0227f93942b3182e48f))
+
+### 🐛 Bug Fixes
+
+- *(plugin)* Breakpoint of sigtrap guard had not been stored - ([f7a50bd](https://github.com/debugger-bs/coreminer/commit/f7a50bd7593944d20b9b8f927f33f7288f73254a))
+- Arguments were not passed correctly and PATH was not used - ([183136e](https://github.com/debugger-bs/coreminer/commit/183136ef71d2cc7282f78d415fc31b15a455e639))
+- Debuggees did not properly receive their arguments - ([f5efe2b](https://github.com/debugger-bs/coreminer/commit/f5efe2b5801507dd9fe95c2daf4b970d85c2cbf6))
+- Plugin mutex was not unlocked - ([27415de](https://github.com/debugger-bs/coreminer/commit/27415de42fce45ade1815130e032314087a5759a))
+
+### 🚜 Refactor
+
+- *(plugin)* Clean up sigtrap-guard - ([75e83dd](https://github.com/debugger-bs/coreminer/commit/75e83ddeee6150c6a2fd128d0b993ae287824035))
+- [**breaking**] Serialize the cstrtings of the run status in a more human readable way - ([63ee881](https://github.com/debugger-bs/coreminer/commit/63ee881b712e002da581b666b6dcd64c962d72f5))
+- [**breaking**] A Word is now a usize to improve compatability - ([9a11434](https://github.com/debugger-bs/coreminer/commit/9a1143461f7c58747d03097516e24b6abbe657d9))
+
+### 📚 Documentation
+
+- *(plugin)* Update steckrs (doc update) and basic doc for sigtrap-guard - ([1c71602](https://github.com/debugger-bs/coreminer/commit/1c7160245afca1c1c7061e3e314e0982d75b3535))
+- Adjust readme for v0.4.0 - ([13b5941](https://github.com/debugger-bs/coreminer/commit/13b5941dcc30f3d6f6a5b36a7ac04eef254f46c2))
+- Typo in readme - ([847191b](https://github.com/debugger-bs/coreminer/commit/847191bab928523132ae6ab8981af41131137e4d))
+- Document list_plugins - ([f2f2d4d](https://github.com/debugger-bs/coreminer/commit/f2f2d4de55a2b7c95e50fbba8c8fd0bb56a4bb2a))
+- Document plugin toggle things - ([87f32c0](https://github.com/debugger-bs/coreminer/commit/87f32c0910e50015fd990da8a054c0aa6612b360))
+- Precisely disable a few more pedantic warnings - ([be052ce](https://github.com/debugger-bs/coreminer/commit/be052cec86fcf39c51f303c0e5e63b3aed250b2c))
+- Disable a warning for ser_pid and justify - ([af09b0e](https://github.com/debugger-bs/coreminer/commit/af09b0e1e1399d353a35f3105c5a9ea71dc3d23b))
+- Document the new methods in debugger - ([16bbede](https://github.com/debugger-bs/coreminer/commit/16bbede9c62b5ba1571536dce06269bea5e651f0))
+- Document sigtrap guard plugin/module - ([f579c70](https://github.com/debugger-bs/coreminer/commit/f579c70613b500d3ade3b099ab26f6d661993301))
+- Fix examples in doc for updated hook_feedback_loop - ([e1de594](https://github.com/debugger-bs/coreminer/commit/e1de5942c8fc6352dfdb260fe429054c8ca52f1f))
+
+### ⚙️ Miscellaneous Tasks
+
+- *(plugin)* Rename sigtrap guard - ([9fda062](https://github.com/debugger-bs/coreminer/commit/9fda06215abe8a34e6a440b037f3d4811296ef09))
+- Add a trace level log for the json interface - ([bcae064](https://github.com/debugger-bs/coreminer/commit/bcae064b5d0bc2e0d09babc485290e4fa2ec2732))
+- Clean up warnings for compiling without default features - ([b06693d](https://github.com/debugger-bs/coreminer/commit/b06693dd020cb9a3dcf6c0a838419eaa8b2dee4f))
+- Add required feature for hello world plugin example - ([106227a](https://github.com/debugger-bs/coreminer/commit/106227ada57e3527a3096e8c54ab30dfd0d69937))
+- Make it compile without plugins - ([11a7d0f](https://github.com/debugger-bs/coreminer/commit/11a7d0fcf14440800dd1638b2ac7bb375f4b9efa))
+- Make hello_world an example plugin - ([8f5bc4f](https://github.com/debugger-bs/coreminer/commit/8f5bc4fc3098ea4a088946316c12045df3a8b4fe))
+
+
 ## [0.3.0](https://github.com/debugger-bs/coreminer/compare/v0.2.3...v0.3.0)
 
 ### ⛰️ Features

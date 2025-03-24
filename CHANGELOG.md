@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.5.0](https://github.com/debugger-bs/coreminer/compare/v0.4.0...v0.5.0)
+
+### ⛰️ Features
+
+- Add logfiles and quiet mode - ([b8079ae](https://github.com/debugger-bs/coreminer/commit/b8079ae2427b9bf057943c3e2fd8a94f18eb32f5))
+
+### 🐛 Bug Fixes
+
+- [**breaking**] Last_signal was deleted after processing any status - ([e3e37ce](https://github.com/debugger-bs/coreminer/commit/e3e37cee1a357ea9f014ee4e2152ea8908188c2c))
+
+### 📚 Documentation
+
+- Fix docs and examples for last_signal fix - ([4edf5f3](https://github.com/debugger-bs/coreminer/commit/4edf5f35b02862da55ee80685b2232d7567c2f9a))
+
+
 ## [0.4.0](https://github.com/debugger-bs/coreminer/compare/v0.3.0...v0.4.0)
 
 ### ⛰️ Features

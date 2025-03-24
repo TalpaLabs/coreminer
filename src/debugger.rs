@@ -2365,7 +2365,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         ))
     }
 
-    /// Take the last_signal field of the debugger, leaving `None` in it's place
+    /// Take the `last_signal` field of the debugger, leaving `None` in it's place
     fn take_last_status(&mut self) -> Option<Signal> {
         self.last_signal.take()
     }

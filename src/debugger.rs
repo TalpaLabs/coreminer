@@ -134,7 +134,7 @@ use steckrs::{PluginIDOwned, PluginManager};
 ///     }
 ///
 ///     // Step over a single instruction
-///     debugger.single_step(None)?;
+///     debugger.single_step()?;
 ///
 ///     // more automated debugging...
 ///
@@ -581,10 +581,6 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// This function tells the debuggee to continue execution from its current state.
     /// If a signal is provided, it will be delivered to the debuggee.
     ///
-    /// # Parameters
-    ///
-    /// * `sig` - An optional signal to deliver to the debuggee, usually [`None`]
-    ///
     /// # Returns
     ///
     /// * `Ok(Feedback)` - The result of the continuation
@@ -606,15 +602,12 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # use coreminer::ui::cli::CliUi;
     /// # use nix::sys::signal::Signal;
     /// #
-    /// # let ui = CliUi::build(None).unwrap();
-    /// # let mut debugger = Debugger::build(ui).unwrap();
-    /// # // Assume debuggee is already running
-    /// #
-    /// // Continue execution normally
-    /// debugger.cont(None).unwrap();
+    /// let ui = CliUi::build(None).unwrap();
+    /// let mut debugger = Debugger::build(ui).unwrap();
+    /// // Assume debuggee is already running
     ///
-    /// // Continue execution and deliver a SIGINT signal
-    /// debugger.cont(Some(Signal::SIGINT)).unwrap();
+    /// // Continue execution
+    /// debugger.cont().unwrap();
     ///
     /// # }}
     /// ```
@@ -865,11 +858,11 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # // Assume debuggee is already running
     /// #
     /// // Step through one instruction
-    /// debugger.single_step(None).unwrap();
+    /// debugger.single_step().unwrap();
     ///
     /// // Step through multiple instructions
     /// for _ in 0..5 {
-    ///     debugger.single_step(None).unwrap();
+    ///     debugger.single_step().unwrap();
     /// }
     ///
     /// # }}
@@ -928,7 +921,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # // Assume debuggee is already running and in a function
     /// #
     /// // Step out of the current function
-    /// debugger.step_out(None).unwrap();
+    /// debugger.step_out().unwrap();
     ///
     /// # }}
     /// ```
@@ -1328,7 +1321,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # // Assume debuggee is already running
     /// #
     /// // Step into the next function call
-    /// debugger.step_into(None).unwrap();
+    /// debugger.step_into().unwrap();
     ///
     /// # }}
     /// ```
@@ -1993,7 +1986,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// debugger.set_last_signal(Signal::SIGTRAP as i32).unwrap();
     ///
     /// // When continuing execution, this signal will be passed to the debuggee
-    /// debugger.cont(None).unwrap();
+    /// debugger.cont().unwrap();
     /// # }}
     /// ```
     pub fn set_last_signal(&mut self, sig: i32) -> Result<Feedback> {
@@ -2372,6 +2365,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         ))
     }
 
+    /// Take the last_signal field of the debugger, leaving `None` in it's place
     fn take_last_status(&mut self) -> Option<Signal> {
         self.last_signal.take()
     }

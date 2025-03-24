@@ -541,11 +541,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # }}
     /// ```
     pub fn process_status(&mut self, status: &Status) -> Result<Feedback> {
-        let last_sig = self.last_signal.take();
         match status {
             Status::Infos => self.infos(),
             Status::DebuggerQuit => Ok(Feedback::Internal(InternalFeedback::Quit)),
-            Status::Continue => self.cont(last_sig),
+            Status::Continue => self.cont(),
             Status::SetBreakpoint(addr) => self.set_bp(*addr),
             Status::DelBreakpoint(addr) => self.del_bp(*addr),
             Status::DumpRegisters => self.dump_regs(),
@@ -554,10 +553,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             Status::ReadMem(a) => self.read_mem(*a),
             Status::DisassembleAt(a, l, literal) => self.disassemble_at(*a, *l, *literal),
             Status::GetSymbolsByName(s) => self.get_symbol_by_name(s),
-            Status::StepSingle => self.single_step(last_sig),
-            Status::StepOut => self.step_out(last_sig),
-            Status::StepInto => self.step_into(last_sig),
-            Status::StepOver => self.step_over(last_sig),
+            Status::StepSingle => self.single_step(),
+            Status::StepOut => self.step_out(),
+            Status::StepInto => self.step_into(),
+            Status::StepOver => self.step_over(),
             Status::Backtrace => self.backtrace(),
             Status::ReadVariable(va) => self.read_variable(va),
             Status::WriteVariable(va, val) => self.write_variable(va, *val),
@@ -619,9 +618,9 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # }}
     /// ```
-    pub fn cont(&mut self, sig: Option<Signal>) -> Result<Feedback> {
+    pub fn cont(&mut self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
-        ptrace::cont(dbge.pid, sig)?;
+        ptrace::cont(dbge.pid, self.take_last_status())?;
 
         self.wait_signal() // wait until the debuggee is stopped again!!!
     }
@@ -824,11 +823,11 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// This function can fail if:
     /// - The debuggee is not running
     /// - ptrace's step operation fails
-    fn atomic_single_step(&self, sig: Option<Signal>) -> Result<()> {
+    fn atomic_single_step(&mut self) -> Result<()> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
 
         // FIXME: this is probably noticeable
-        if let Err(e) = ptrace::step(dbge.pid, sig) {
+        if let Err(e) = ptrace::step(dbge.pid, self.take_last_status()) {
             error!("could not do atomic step: {e}");
             return Err(e.into());
         }
@@ -875,8 +874,8 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # }}
     /// ```
-    pub fn single_step(&mut self, mut sig: Option<Signal>) -> Result<Feedback> {
-        if self.go_back_step_over_bp(sig.take())? {
+    pub fn single_step(&mut self) -> Result<Feedback> {
+        if self.go_back_step_over_bp()? {
             info!("breakpoint before, caught up and continueing with single step");
         }
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
@@ -884,10 +883,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
         let maybe_bp_addr: Addr = self.get_current_addr()?;
         if dbge.breakpoints.contains_key(&maybe_bp_addr) {
             trace!("step over instruction with breakpoint");
-            self.dse(maybe_bp_addr, sig.take())?;
+            self.dse(maybe_bp_addr)?;
         } else {
             trace!("step regular instruction");
-            self.atomic_single_step(sig.take())?;
+            self.atomic_single_step()?;
             self.wait_signal()?;
         }
         trace!("now at {:018x}", self.get_reg(Register::rip)?);
@@ -933,7 +932,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     ///
     /// # }}
     /// ```
-    pub fn step_out(&mut self, sig: Option<Signal>) -> Result<Feedback> {
+    pub fn step_out(&mut self) -> Result<Feedback> {
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
         {
             let a = dbge.get_function_by_addr(self.get_reg(Register::rip)?.into())?;
@@ -960,7 +959,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             true
         };
 
-        self.cont(sig)?;
+        self.cont()?;
 
         if should_remove_breakpoint {
             self.del_bp(return_addr)?;
@@ -987,7 +986,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// - The debuggee is not running
     /// - Breakpoint operations fail
     /// - Step operations fail
-    fn dse(&mut self, here: Addr, sig: Option<Signal>) -> Result<()> {
+    fn dse(&mut self, here: Addr) -> Result<()> {
         trace!("disabling the breakpoint");
         self.debuggee
             .as_mut()
@@ -998,7 +997,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             .disable()?;
 
         trace!("atomic step");
-        self.atomic_single_step(sig)?;
+        self.atomic_single_step()?;
         trace!("waiting");
         self.wait_signal()
             .inspect_err(|e| warn!("weird wait_signal error: {e}"))?;
@@ -1033,7 +1032,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// - Register operations fail
     /// - Breakpoint operations fail
     #[allow(clippy::missing_panics_doc)] // this function cant panic
-    pub fn go_back_step_over_bp(&mut self, sig: Option<Signal>) -> Result<bool> {
+    pub fn go_back_step_over_bp(&mut self) -> Result<bool> {
         if self.debuggee.is_none() {
             return Err(DebuggerError::NoDebugee);
         }
@@ -1055,7 +1054,7 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             trace!("set register to {here}");
             self.set_reg(Register::rip, here.into())?;
 
-            self.dse(here, sig)?;
+            self.dse(here)?;
             Ok(true)
         } else {
             trace!("breakpoint is disabled or does not exist, doing nothing");
@@ -1334,11 +1333,11 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # }}
     /// ```
     #[allow(clippy::missing_panics_doc)] // this function cannot panic
-    pub fn step_into(&mut self, mut sig: Option<Signal>) -> Result<Feedback> {
+    pub fn step_into(&mut self) -> Result<Feedback> {
         if self.debuggee.is_none() {
             return Err(DebuggerError::NoDebugee);
         }
-        self.go_back_step_over_bp(sig.take())?;
+        self.go_back_step_over_bp()?;
 
         loop {
             let rip: Addr = (self.get_reg(Register::rip)?).into();
@@ -1355,10 +1354,10 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
             // PERF: this is very inefficient :/ maybe remove the autostepper or work with continue
             // somehow
             if operator.0.trim() == "call" {
-                self.single_step(sig.take())?;
+                self.single_step()?;
                 break;
             }
-            self.single_step(sig.take())?;
+            self.single_step()?;
         }
 
         Ok(Feedback::Ok)
@@ -1378,11 +1377,11 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// This function can fail if:
     /// - The debuggee is not running
     /// - Step operations fail
-    pub fn step_over(&mut self, mut sig: Option<Signal>) -> Result<Feedback> {
-        self.go_back_step_over_bp(sig.take())?;
+    pub fn step_over(&mut self) -> Result<Feedback> {
+        self.go_back_step_over_bp()?;
 
-        self.step_into(sig.take())?;
-        self.step_out(None)
+        self.step_into()?;
+        self.step_out()
     }
 
     /// Gets a backtrace of the current call stack
@@ -2371,5 +2370,9 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
                 .map(|plugin| (plugin.id().into(), plugin.is_enabled()))
                 .collect(),
         ))
+    }
+
+    fn take_last_status(&mut self) -> Option<Signal> {
+        self.last_signal.take()
     }
 }

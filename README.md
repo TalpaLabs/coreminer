@@ -5,17 +5,17 @@
         Debug those programs that don't want to be
     </p>
     <br/>
-    <a href="https://github.com/debugger-bs/coreminer/actions/workflows/release.yaml">
-        <img src="https://img.shields.io/github/actions/workflow/status/debugger-bs/coreminer/release.yaml?label=Release" alt="Release Status"/>
+    <a href="https://github.com/TalpaLabs/coreminer/actions/workflows/release.yaml">
+        <img src="https://img.shields.io/github/actions/workflow/status/TalpaLabs/coreminer/release.yaml?label=Release" alt="Release Status"/>
     </a>
-    <a href="https://github.com/debugger-bs/coreminer/actions/workflows/cargo.yaml">
-        <img src="https://img.shields.io/github/actions/workflow/status/debugger-bs/coreminer/cargo.yaml?label=Rust%20CI" alt="Rust CI"/>
+    <a href="https://github.com/TalpaLabs/coreminer/actions/workflows/cargo.yaml">
+        <img src="https://img.shields.io/github/actions/workflow/status/TalpaLabs/coreminer/cargo.yaml?label=Rust%20CI" alt="Rust CI"/>
     </a>
-    <a href="https://github.com/debugger-bs/coreminer/blob/master/LICENSE">
-        <img src="https://img.shields.io/github/license/debugger-bs/coreminer" alt="License"/>
+    <a href="https://github.com/TalpaLabs/coreminer/blob/master/LICENSE">
+        <img src="https://img.shields.io/github/license/TalpaLabs/coreminer" alt="License"/>
     </a>
-    <a href="https://github.com/debugger-bs/coreminer/releases">
-        <img src="https://img.shields.io/github/v/release/debugger-bs/coreminer" alt="Release"/>
+    <a href="https://github.com/TalpaLabs/coreminer/releases">
+        <img src="https://img.shields.io/github/v/release/TalpaLabs/coreminer" alt="Release"/>
     </a>
     <br/>
     <a href="https://rust-lang.org">
@@ -32,9 +32,9 @@
 
 # coreminer
 
-* [GitHub](https://github.com/debugger-bs/coreminer)
-* [crates.io](https://crates.io/crates/coreminer)
-* [Documentation on docs.rs](https://docs.rs/coreminer/latest/coreminer/)
+- [GitHub](https://github.com/TalpaLabs/coreminer)
+- [crates.io](https://crates.io/crates/coreminer)
+- [Documentation on docs.rs](https://docs.rs/coreminer/latest/coreminer/)
 
 A powerful debugger written in Rust that provides low-level debugging capabilities for programs that may not want to be debugged. Coreminer gives you deep control over program execution with robust DWARF debug information parsing.
 
@@ -70,7 +70,7 @@ cargo install coreminer
 ### From source
 
 ```bash
-git clone https://github.com/debugger-bs/coreminer.git
+git clone https://github.com/TalpaLabs/coreminer.git
 cd coreminer
 cargo build --release
 ```
@@ -181,7 +181,7 @@ Input Types:
 
 From `v0.2.0`, Coreminer includes a second binary: `cmserve`. `cmserve` provides
 all internal functionalities of the Coreminer debugger, but can be
-scripted. This enables projects such as [hardhat](https://github.com/debugger-bs/hardhat)
+scripted. This enables projects such as [hardhat](https://github.com/TalpaLabs/hardhat)
 to build a better user interface for Coreminer.
 
 To see some example inputs (statuses) and outputs (feedbacks), you can use

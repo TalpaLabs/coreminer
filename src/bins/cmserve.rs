@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::exit;
 
 use coreminer::addr::Addr;
@@ -48,12 +48,22 @@ struct Args {
     ///
     /// Displays sample JSON structures for the responses sent by the debugger
     example_feedbacks: bool,
+
+    #[arg(short, long)]
+    /// Do not log anything
+    quiet: bool,
+
+    #[arg(long)]
+    /// Log into a logfile instead of stderr
+    logfile: Option<PathBuf>,
 }
 
 fn main() -> Result<(), DebuggerError> {
-    setup();
-
     let args = Args::parse();
+
+    if !args.quiet {
+        setup(args.logfile);
+    }
 
     if args.example_statuses {
         example_statuses();
@@ -129,22 +139,47 @@ fn example_feedbacks() {
     }
 }
 
-fn setup() {
+fn setup(logfile: Option<PathBuf>) {
     human_panic::setup_panic!();
-    // construct a subscriber that prints formatted traces to stdout
-    let subscriber = tracing_subscriber::fmt()
-        .with_max_level(
-            #[cfg(debug_assertions)]
-            tracing::Level::TRACE,
-            #[cfg(not(debug_assertions))]
-            tracing::Level::INFO,
-        )
-        .without_time()
-        .with_file(false)
-        .with_target(false)
-        .with_writer(std::io::stderr)
-        .finish();
-    // use that subscriber to process traces emitted after this point
-    tracing::subscriber::set_global_default(subscriber).expect("could not setup logger");
+
+    if let Some(lf) = logfile {
+        let file = match std::fs::File::options().create(true).append(true).open(lf) {
+            Ok(f) => f,
+            Err(e) => {
+                eprintln!("could not setup logfile: {e}");
+                std::process::exit(1);
+            }
+        };
+
+        // construct a subscriber that prints formatted traces to file
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(
+                #[cfg(debug_assertions)]
+                tracing::Level::TRACE,
+                #[cfg(not(debug_assertions))]
+                tracing::Level::INFO,
+            )
+            .without_time()
+            .with_file(false)
+            .with_target(false)
+            .with_writer(file)
+            .finish();
+        tracing::subscriber::set_global_default(subscriber).expect("could not setup logger");
+    } else {
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(
+                #[cfg(debug_assertions)]
+                tracing::Level::TRACE,
+                #[cfg(not(debug_assertions))]
+                tracing::Level::INFO,
+            )
+            .without_time()
+            .with_file(false)
+            .with_target(false)
+            .with_writer(std::io::stderr)
+            .finish();
+        tracing::subscriber::set_global_default(subscriber).expect("could not setup logger");
+    }
+
     trace!("set up the logger");
 }

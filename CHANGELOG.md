@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.5.0](https://github.com/TalpaLabs/coreminer/compare/v0.4.0...v0.5.0)
+
+### ⛰️ Features
+
+- Add logfiles and quiet mode - ([7df3fc7](https://github.com/TalpaLabs/coreminer/commit/7df3fc70841e993ce502350e5e01337bc3862307))
+
+### 🐛 Bug Fixes
+
+- [**breaking**] Last_signal was deleted after processing any status - ([e1e8aa0](https://github.com/TalpaLabs/coreminer/commit/e1e8aa0fdaa4b790f7cca4047f3b21e170420fe6))
+
+### 📚 Documentation
+
+- Add TalpaLabs to license - ([7ad5459](https://github.com/TalpaLabs/coreminer/commit/7ad54594795b844cadacf00dd00f67aea4ccffdd))
+- Rebrand debugger-bs to TalpaLabs - ([0e6d0ad](https://github.com/TalpaLabs/coreminer/commit/0e6d0ad70eae6ac015d5e2f090fdb7463bb5b2bd))
+- Fix docs and examples for last_signal fix - ([c419160](https://github.com/TalpaLabs/coreminer/commit/c41916072af59e1d447e8e0e287c0a08b4e14e8f))
+
+### ⚙️ Miscellaneous Tasks
+
+- Automatic Rust CI changes - ([0d3f816](https://github.com/TalpaLabs/coreminer/commit/0d3f8168fa92dd0eda118cbbc18cdd6250705f3a))
+
+
 ## [0.4.0](https://github.com/TalpaLabs/coreminer/compare/v0.3.0...v0.4.0)
 
 ### ⛰️ Features

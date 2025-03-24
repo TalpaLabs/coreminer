@@ -8,8 +8,8 @@ authors = ["Christoph J. Scherr <software@cscherr.de>", "Marco Ludwig"]
 license = "MIT"
 description = "A debugger which can be used to debug programs that do not want to be debugged"
 readme = "README.md"
-homepage = "https://github.com/debugger-bs/coreminer"
-repository = "https://github.com/debugger-bs/coreminer"
+homepage = "https://github.com/TalpaLabs/coreminer"
+repository = "https://github.com/TalpaLabs/coreminer"
 keywords = ["debugger", "ptrace", "dwarf", "disassembler", "debugging"]
 categories = [
 	"development-tools",

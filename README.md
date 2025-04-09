@@ -58,7 +58,7 @@ To compile, coreminer depends on `libunwind-dev`. On Debian, it can be installed
 this. Other distributions provide similar packages.
 
 ```bash
-apt install libunwind-dev
+apt install libunwind-dev pkg-config
 ```
 
 ### From crates.io

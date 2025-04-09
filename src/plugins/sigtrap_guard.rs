@@ -187,7 +187,7 @@ impl EPreSigtrapF for SigtrapInjectionGuard {
                         rip - 1, /* need to check the addr that was last executed, not the one that would get executed next */
                     ),
                     false,
-                ))
+                ));
             }
         };
 

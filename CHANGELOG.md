@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.1](https://github.com/TalpaLabs/coreminer/compare/v0.5.0...v0.5.1)
+
+### 🐛 Bug Fixes
+
+- *(plugin)* Check the last address for a breakpoint in sigtrap guard #60 - ([5e03bec](https://github.com/TalpaLabs/coreminer/commit/5e03bec5aa1243b6b41d54b5d6e5131cb465f071))
+- Remove unnecessary error logs - ([b361e40](https://github.com/TalpaLabs/coreminer/commit/b361e40f992a12a5272313a2e8a47a9f385d1a7a))
+- Continue did not use go_back_step_over_bp - ([eea5b5e](https://github.com/TalpaLabs/coreminer/commit/eea5b5ec81867bf9f2b7d893219379a922589167))
+
+### 📚 Documentation
+
+- Add pkg-config to install instructions #58 - ([903034b](https://github.com/TalpaLabs/coreminer/commit/903034b20c6055ca308de7d978d13106048173ae))
+
+### ⚙️ Miscellaneous Tasks
+
+- Automatic Rust CI changes - ([4d51476](https://github.com/TalpaLabs/coreminer/commit/4d51476498d8ada01977075c74a3f207423d19c0))
+
+
 ## [0.5.0](https://github.com/TalpaLabs/coreminer/compare/v0.4.0...v0.5.0)
 
 ### ⛰️ Features

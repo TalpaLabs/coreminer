@@ -244,6 +244,10 @@ impl Drop for Breakpoint {
     fn drop(&mut self) {
         if self.is_enabled() {
             if let Err(e) = self.disable() {
+                if matches!(e, DebuggerError::Os(nix::errno::Errno::ESRCH)) {
+                    // if the process does not exist anymore, that is not an error
+                    return;
+                }
                 error!("{e}");
             }
         }

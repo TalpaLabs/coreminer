@@ -612,6 +612,9 @@ impl<'executable, UI: DebuggerUI> Debugger<'executable, UI> {
     /// # }}
     /// ```
     pub fn cont(&mut self) -> Result<Feedback> {
+        if self.go_back_step_over_bp()? {
+            info!("breakpoint before, caught up and continueing with single step");
+        }
         let dbge = self.debuggee.as_ref().ok_or(DebuggerError::NoDebugee)?;
         ptrace::cont(dbge.pid, self.take_last_status())?;
 

@@ -181,7 +181,14 @@ impl EPreSigtrapF for SigtrapInjectionGuard {
                 self.bp = Some(bp.clone());
                 bp.as_ref()
             }
-            _ => return Ok((Status::GetBreakpoint(rip), false)),
+            _ => {
+                return Ok((
+                    Status::GetBreakpoint(
+                        rip - 1, /* need to check the addr that was last executed, not the one that would get executed next */
+                    ),
+                    false,
+                ))
+            }
         };
 
         if let Some(bp) = maybe_bp {

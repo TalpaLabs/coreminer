@@ -232,7 +232,7 @@ impl Disassembly {
                 bp_indexes.contains(&(instruction.ip() as usize - first_addr.usize())),
             ) {
                 warn!("Error while disassembling, skipping: {e}");
-            };
+            }
         }
 
         Ok(disassembly)

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.2](https://github.com/TalpaLabs/coreminer/compare/v0.5.1...v0.5.2)
+
+### 🚜 Refactor
+
+- *(examples)* Sigtrap_self is now easier to read - ([8678281](https://github.com/TalpaLabs/coreminer/commit/86782814e1d5093ddc99974b88f5343864da7489))
+
+### ⚙️ Miscellaneous Tasks
+
+- Add ptrace self example - ([6f5a18c](https://github.com/TalpaLabs/coreminer/commit/6f5a18cb99d61c15d99927fe973085126193f479))
+
+
 ## [0.5.1](https://github.com/TalpaLabs/coreminer/compare/v0.5.0...v0.5.1)
 
 ### 🐛 Bug Fixes

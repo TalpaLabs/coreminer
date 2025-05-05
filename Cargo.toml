@@ -31,7 +31,7 @@ gimli = { version = "0.31.1", default-features = true, features = [
 ] }
 human-panic = { version = "2.0.2", optional = true }
 iced-x86 = "1.21.0"
-nix = { version = "0.29.0", features = [
+nix = { version = "0.30.1", features = [
 	"personality",
 	"process",
 	"ptrace",

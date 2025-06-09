@@ -513,7 +513,7 @@ impl DebuggerUI for CliUi {
 /// * `true` - If the command matches any prefix
 /// * `false` - If the command does not match any prefix
 fn string_matches(cmd: &str, prefixes: &[&str]) -> bool {
-    prefixes.iter().any(|a| cmd == *a)
+    prefixes.contains(&cmd)
 }
 
 /// Shows help information for the debugger commands

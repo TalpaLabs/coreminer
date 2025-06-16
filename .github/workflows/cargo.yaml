@@ -41,7 +41,7 @@ jobs:
         run: cargo test --all-features && cargo test --no-default-features
       - name: commit back to repository
         if: "!contains(github.ref, 'master')"
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v6
         with:
           # Optional. Commit message for the created commit.
           # Defaults to "Apply automatic changes"

@@ -77,7 +77,7 @@ extension_point!(
     ///
     /// This function runs in a feedback loop, allowing the hook to execute debugger
     /// commands by returning Status values and receiving Feedback from those commands.
-    /// The loop continues until the hook returns Status::PluginContinue.
+    /// The loop continues until the hook returns `Status::PluginContinue`.
     ///
     /// # Parameters
     ///
@@ -114,7 +114,7 @@ extension_point!(
     ///
     /// This function runs in a feedback loop, allowing the hook to execute debugger
     /// commands by returning Status values and receiving Feedback from those commands.
-    /// The loop continues until the hook returns Status::PluginContinue.
+    /// The loop continues until the hook returns `Status::PluginContinue`.
     ///
     /// # Parameters
     ///
